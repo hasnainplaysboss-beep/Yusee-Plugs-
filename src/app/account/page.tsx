@@ -1,3 +1,4 @@
+import AccountDetailsForm from "./AccountDetailsForm";
 import "./account.css";
 import { redirect } from "next/navigation";
 import Link from "next/link";
