@@ -5,7 +5,7 @@ import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Menu, ShoppingBag, Search, X, ArrowUpRight, Plus,
-  Heart, ChevronDown, Instagram, ArrowRight
+  Heart, ChevronDown
 } from "lucide-react";
 
 const products = [
@@ -33,6 +33,25 @@ export default function Home() {
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [saved, setSaved] = useState<number[]>([]);
+  const [customerSignedIn, setCustomerSignedIn] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then(res => {
+        if (!res.ok) throw new Error("Could not check session");
+        return res.json();
+      })
+      .then(data => {
+        setCustomerSignedIn(data.signedIn === true);
+      })
+      .catch(() => {
+        setCustomerSignedIn(false);
+      })
+      .finally(() => {
+        setAuthChecked(true);
+      });
+  }, []);
 
   const visible = useMemo(() => products.filter(p =>
     (active === "All" || p.category === active) &&
@@ -41,6 +60,24 @@ export default function Home() {
 
   const bagItems = bag.map(id => products.find(p => p.id === id)).filter(Boolean);
   const total = bagItems.reduce((sum, p) => sum + (p?.price ?? 0), 0);
+
+  async function handleSignOut() {
+    try {
+      const response = await fetch("/api/auth/logout", {
+        method: "POST"
+      });
+
+      if (!response.ok) {
+        throw new Error("Sign out failed");
+      }
+
+      setCustomerSignedIn(false);
+      setMenuOpen(false);
+      window.location.reload();
+    } catch {
+      alert("Could not sign out. Please try again.");
+    }
+  }
 
   return (
     <main>
@@ -168,8 +205,29 @@ export default function Home() {
               <Link className="wordmark" href="/">YUSEE<span>PLUGS</span></Link>
               <button className="iconButton" aria-label="Close menu" onClick={() => setMenuOpen(false)}><X/></button>
             </div>
-            <Link className="signIn" href="/login" onClick={() => setMenuOpen(false)}>SIGN IN <ArrowUpRight size={16}/></Link>
-            <Link className="signIn" href="/register" onClick={() => setMenuOpen(false)}>CREATE ACCOUNT <ArrowUpRight size={16}/></Link>
+
+            {!authChecked ? (
+              <p className="signIn">CHECKING ACCOUNT...</p>
+            ) : customerSignedIn ? (
+              <>
+                <Link className="signIn" href="/account" onClick={() => setMenuOpen(false)}>
+                  MY ACCOUNT <ArrowUpRight size={16}/>
+                </Link>
+                <button className="signIn" onClick={handleSignOut}>
+                  SIGN OUT <ArrowUpRight size={16}/>
+                </button>
+              </>
+            ) : (
+              <>
+                <Link className="signIn" href="/login" onClick={() => setMenuOpen(false)}>
+                  SIGN IN <ArrowUpRight size={16}/>
+                </Link>
+                <Link className="signIn" href="/register" onClick={() => setMenuOpen(false)}>
+                  CREATE ACCOUNT <ArrowUpRight size={16}/>
+                </Link>
+              </>
+            )}
+
             <div className="menuGroups">
               {(["Men", "Women"] as const).map(g => (
                 <div className="menuGroup" key={g}>
