@@ -111,9 +111,18 @@ export async function POST(req: Request) {
       session.shipping_details?.address ||
       session.customer_details?.address;
 
-    if (!address?.line1 || !address.city || !address.postal_code) {
-      throw new Error("Customer delivery address is incomplete.");
-    }
+    if (
+  !address ||
+  !address.line1 ||
+  !address.city ||
+  !address.postal_code
+) {
+  throw new Error("Customer delivery address is incomplete.");
+}
+
+const addressLine1 = address.line1;
+const city = address.city;
+const postcode = address.postal_code;
 
     const customerName =
       session.shipping_details?.name ||
