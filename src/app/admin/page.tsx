@@ -24,42 +24,49 @@ const emptyVariant = (): Variant => ({
   stock: "10"
 });
 
+const emptyProduct = () => ({
+  name: "",
+  gender: "Men",
+  category: "",
+  description: "",
+  imageUrl: "",
+  featured: false
+});
+
 export default function Admin() {
-  const [email, E] = useState("");
-  const [password, P] = useState("");
-  const [ok, O] = useState(false);
-  const [data, D] = useState<any>({
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [ok, setOk] = useState(false);
+  const [data, setData] = useState<any>({
     products: [],
     orders: [],
     customers: [],
     revenue: 0
   });
-  const [tab, T] = useState("Overview");
-  const [msg, M] = useState("");
-  const [uploading, U] = useState(false);
-  const [selectedFile, SF] = useState<File | null>(null);
-  const [preview, SP] = useState("");
 
-  const [f, F] = useState({
-    name: "",
-    gender: "Men",
-    category: "",
-    description: "",
-    imageUrl: ""
-  });
+  const [tab, setTab] = useState("Overview");
+  const [msg, setMsg] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
 
-  const [variants, V] = useState<Variant[]>([emptyVariant()]);
+  const [f, setF] = useState(emptyProduct());
+  const [variants, setVariants] = useState<Variant[]>([emptyVariant()]);
 
   async function load() {
     const r = await fetch("/api/admin/data");
-    if (r.ok) D(await r.json());
+
+    if (r.ok) {
+      setData(await r.json());
+    }
   }
 
   useEffect(() => {
     if (ok) load();
   }, [ok]);
 
-  async function login(e: any) {
+  async function login(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
     const r = await fetch("/api/admin/login", {
@@ -68,8 +75,12 @@ export default function Admin() {
       body: JSON.stringify({ email, password })
     });
 
-    if (r.ok) O(true);
-    else M("Login failed. Check your admin account.");
+    if (r.ok) {
+      setOk(true);
+      setMsg("");
+    } else {
+      setMsg("Login failed. Check your admin account.");
+    }
   }
 
   async function action(body: any) {
@@ -89,7 +100,15 @@ export default function Admin() {
     return true;
   }
 
-  function chooseImage(e: any) {
+  function resetProductForm() {
+    setF(emptyProduct());
+    setVariants([emptyVariant()]);
+    setSelectedFile(null);
+    setPreview("");
+    setEditingId(null);
+  }
+
+  function chooseImage(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -105,22 +124,57 @@ export default function Admin() {
       return;
     }
 
-    SF(file);
+    setSelectedFile(file);
 
     const reader = new FileReader();
-    reader.onload = () => SP(String(reader.result));
+    reader.onload = () => setPreview(String(reader.result));
     reader.readAsDataURL(file);
   }
 
-  function updateVariant(index: number, field: keyof Variant, value: string) {
-    V(current =>
+  function updateVariant(
+    index: number,
+    field: keyof Variant,
+    value: string
+  ) {
+    setVariants(current =>
       current.map((variant, i) =>
         i === index ? { ...variant, [field]: value } : variant
       )
     );
   }
 
-  async function saveProduct(e: any) {
+  function editProduct(product: any) {
+    const parts = String(product.category || "").split(" / ");
+
+    setF({
+      name: product.name || "",
+      gender: parts[0] === "Women" ? "Women" : "Men",
+      category: parts.length > 1 ? parts.slice(1).join(" / ") : parts[0],
+      description: product.description || "",
+      imageUrl: product.imageUrl || "",
+      featured: product.featured === true
+    });
+
+    setVariants(
+      product.variants?.length
+        ? product.variants.map((v: any) => ({
+            size: v.size || "",
+            colour: v.colour || "",
+            price: (v.pricePence / 100).toFixed(2),
+            stock: String(v.stock ?? 0)
+          }))
+        : [emptyVariant()]
+    );
+
+    setSelectedFile(null);
+    setPreview(product.imageUrl || "");
+    setEditingId(product.id);
+    setTab("Products");
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function saveProduct(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
     if (!f.name.trim() || !f.category.trim()) {
@@ -128,17 +182,29 @@ export default function Admin() {
       return;
     }
 
-    if (variants.some(v => !v.size.trim() || !v.colour.trim() || !v.price || !v.stock)) {
+    if (
+      variants.some(
+        v => !v.size.trim() || !v.colour.trim() || !v.price || !v.stock
+      )
+    ) {
       alert("Please complete every field for each variant.");
       return;
     }
 
-    if (variants.some(v => Number(v.price) < 0 || Number(v.stock) < 0)) {
-      alert("Price and stock cannot be negative.");
+    if (
+      variants.some(
+        v =>
+          !Number.isFinite(Number(v.price)) ||
+          !Number.isFinite(Number(v.stock)) ||
+          Number(v.price) < 0 ||
+          Number(v.stock) < 0
+      )
+    ) {
+      alert("Enter valid prices and stock quantities.");
       return;
     }
 
-    U(true);
+    setUploading(true);
 
     try {
       let imageUrl = f.imageUrl;
@@ -162,12 +228,16 @@ export default function Admin() {
         imageUrl = uploadResult.imageUrl;
       }
 
+      const wasEditing = Boolean(editingId);
+
       const saved = await action({
         action: "product",
+        id: editingId,
         name: f.name,
         category: `${f.gender} / ${f.category}`,
         description: f.description,
         imageUrl,
+        featured: f.featured,
         variants: variants.map(v => ({
           size: v.size,
           colour: v.colour,
@@ -177,23 +247,14 @@ export default function Admin() {
       });
 
       if (saved) {
-        F({
-          name: "",
-          gender: "Men",
-          category: "",
-          description: "",
-          imageUrl: ""
-        });
-        V([emptyVariant()]);
-        SF(null);
-        SP("");
-        alert("Product saved successfully.");
+        resetProductForm();
+        alert(wasEditing ? "Product updated successfully." : "Product saved successfully.");
       }
     } catch (error) {
       console.error(error);
       alert("Something went wrong while saving the product.");
     } finally {
-      U(false);
+      setUploading(false);
     }
   }
 
@@ -203,21 +264,24 @@ export default function Admin() {
         <form onSubmit={login}>
           <h1>YUSEE PLUGS</h1>
           <p>ADMIN ACCESS</p>
+
           <input
             placeholder="Admin email"
             type="email"
             value={email}
-            onChange={e => E(e.target.value)}
+            onChange={e => setEmail(e.target.value)}
             required
           />
+
           <input
             placeholder="Password"
             type="password"
             value={password}
-            onChange={e => P(e.target.value)}
+            onChange={e => setPassword(e.target.value)}
             required
           />
-          <button>Sign in</button>
+
+          <button type="submit">Sign in</button>
           <small>{msg}</small>
         </form>
       </main>
@@ -234,7 +298,7 @@ export default function Admin() {
           <button
             key={x}
             className={tab === x ? "active" : ""}
-            onClick={() => T(x)}
+            onClick={() => setTab(x)}
           >
             {x}
           </button>
@@ -247,6 +311,7 @@ export default function Admin() {
             <small>YUSEE PLUGS / ADMIN</small>
             <h1>{tab}</h1>
           </div>
+
           <button onClick={load}>Refresh</button>
         </header>
 
@@ -257,19 +322,25 @@ export default function Admin() {
                 <small>Net revenue</small>
                 <b>{cash(data.revenue * 100)}</b>
               </article>
+
               <article>
                 <small>Orders</small>
                 <b>{data.orders.length}</b>
               </article>
+
               <article>
                 <small>Products</small>
                 <b>{data.products.length}</b>
               </article>
+
               <article>
                 <small>Customers</small>
-                <b>{data.customers.filter((c: any) => c.role === "CUSTOMER").length}</b>
+                <b>
+                  {data.customers.filter((c: any) => c.role === "CUSTOMER").length}
+                </b>
               </article>
             </div>
+
             <p className="note">
               Figures are calculated from records currently stored in your database.
             </p>
@@ -289,21 +360,21 @@ export default function Admin() {
         {tab === "Products" && (
           <>
             <article>
-              <h2>Add a product</h2>
+              <h2>{editingId ? "Edit product" : "Add a product"}</h2>
 
               <form className="productForm" onSubmit={saveProduct}>
                 <label>Product name</label>
                 <input
                   placeholder="Enter product name"
                   value={f.name}
-                  onChange={e => F({ ...f, name: e.target.value })}
+                  onChange={e => setF({ ...f, name: e.target.value })}
                   required
                 />
 
                 <label>Gender</label>
                 <select
                   value={f.gender}
-                  onChange={e => F({ ...f, gender: e.target.value })}
+                  onChange={e => setF({ ...f, gender: e.target.value })}
                 >
                   <option value="Men">Men</option>
                   <option value="Women">Women</option>
@@ -313,7 +384,7 @@ export default function Admin() {
                 <input
                   placeholder="e.g. Hoodies & jumpers, Shoes, Leggings"
                   value={f.category}
-                  onChange={e => F({ ...f, category: e.target.value })}
+                  onChange={e => setF({ ...f, category: e.target.value })}
                   required
                 />
 
@@ -336,11 +407,13 @@ export default function Admin() {
                         borderRadius: "8px"
                       }}
                     />
+
                     <button
                       type="button"
                       onClick={() => {
-                        SF(null);
-                        SP("");
+                        setSelectedFile(null);
+                        setPreview("");
+                        setF({ ...f, imageUrl: "" });
                       }}
                     >
                       Remove image
@@ -356,17 +429,42 @@ export default function Admin() {
                 <input
                   placeholder="Image URL (optional)"
                   value={f.imageUrl}
-                  onChange={e => F({ ...f, imageUrl: e.target.value })}
+                  onChange={e => setF({ ...f, imageUrl: e.target.value })}
                 />
 
                 <label>Description</label>
                 <textarea
                   placeholder="Describe your product"
                   value={f.description}
-                  onChange={e => F({ ...f, description: e.target.value })}
+                  onChange={e => setF({ ...f, description: e.target.value })}
                 />
 
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    margin: "18px 0",
+                    cursor: "pointer"
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={f.featured}
+                    onChange={e =>
+                      setF({ ...f, featured: e.target.checked })
+                    }
+                    style={{ width: "18px", height: "18px" }}
+                  />
+                  Show on Featured
+                </label>
+
+                <p className="note">
+                  Tick this box to show this product in the Featured section on your homepage.
+                </p>
+
                 <h3>Product variants</h3>
+
                 <p className="note">
                   Add each size and colour combination separately. Set the price
                   and stock for each combination.
@@ -434,7 +532,9 @@ export default function Admin() {
                       <button
                         type="button"
                         onClick={() =>
-                          V(current => current.filter((_, i) => i !== index))
+                          setVariants(current =>
+                            current.filter((_, i) => i !== index)
+                          )
                         }
                       >
                         Remove this variant
@@ -445,26 +545,61 @@ export default function Admin() {
 
                 <button
                   type="button"
-                  onClick={() => V(current => [...current, emptyVariant()])}
+                  onClick={() =>
+                    setVariants(current => [...current, emptyVariant()])
+                  }
                 >
                   + Add another variant
                 </button>
 
                 <button type="submit" disabled={uploading}>
-                  {uploading ? "Uploading and saving..." : "Save product"}
+                  {uploading
+                    ? "Uploading and saving..."
+                    : editingId
+                      ? "Update product"
+                      : "Save product"}
                 </button>
+
+                {editingId && (
+                  <button type="button" onClick={resetProductForm}>
+                    Cancel editing
+                  </button>
+                )}
               </form>
             </article>
 
             <article>
               <h2>Catalogue</h2>
+
               {data.products.map((p: any) => (
-                <p className="line" key={p.id}>
-                  <b>{p.name}</b> · {p.category || "Uncategorised"} ·{" "}
-                  {p.variants.length} variants ·{" "}
-                  {p.variants.reduce((s: number, v: any) => s + v.stock, 0)} in stock
-                </p>
+                <div className="line" key={p.id}>
+                  <p>
+                    <b>{p.name}</b>
+                    {" · "}
+                    {p.category || "Uncategorised"}
+                    {" · "}
+                    {p.variants.length} variants
+                    {" · "}
+                    {p.variants.reduce(
+                      (s: number, v: any) => s + v.stock,
+                      0
+                    )}{" "}
+                    in stock
+                  </p>
+
+                  <p>
+                    <b>{p.featured ? "FEATURED" : "Not featured"}</b>
+                  </p>
+
+                  <button type="button" onClick={() => editProduct(p)}>
+                    Edit product
+                  </button>
+                </div>
               ))}
+
+              {data.products.length === 0 && (
+                <p className="note">No products have been added yet.</p>
+              )}
             </article>
           </>
         )}
@@ -472,21 +607,34 @@ export default function Admin() {
         {tab === "Orders" && (
           <article>
             <h2>Orders</h2>
+
             {data.orders.map((o: any) => (
               <details key={o.id}>
                 <summary>
                   {o.orderNumber} · {o.customerName} · {cash(o.totalPence)}
                 </summary>
-                <p>{o.customerEmail} · {o.customerPhone || "No phone"}</p>
+
                 <p>
-                  {[o.addressLine1, o.addressLine2, o.city, o.county, o.postcode, o.country]
-                    .filter(Boolean).join(", ")}
+                  {o.customerEmail} · {o.customerPhone || "No phone"}
                 </p>
+
+                <p>
+                  {[
+                    o.addressLine1,
+                    o.addressLine2,
+                    o.city,
+                    o.county,
+                    o.postcode,
+                    o.country
+                  ].filter(Boolean).join(", ")}
+                </p>
+
                 <p>
                   {o.items.map((i: any) =>
                     `${i.productName} ${i.size || ""} ${i.colour || ""} ×${i.quantity}`
                   ).join(", ")}
                 </p>
+
                 <div className="row">
                   <select
                     defaultValue={o.status}
@@ -500,33 +648,50 @@ export default function Admin() {
                       })
                     }
                   >
-                    {["PENDING", "PROCESSING", "PACKED", "SHIPPED", "DELIVERED", "CANCELLED"]
-                      .map(x => <option key={x}>{x}</option>)}
+                    {[
+                      "PENDING",
+                      "PROCESSING",
+                      "PACKED",
+                      "SHIPPED",
+                      "DELIVERED",
+                      "CANCELLED"
+                    ].map(x => (
+                      <option key={x}>{x}</option>
+                    ))}
                   </select>
+
                   <input placeholder="Courier" id={"c" + o.id} />
                   <input placeholder="Tracking number" id={"t" + o.id} />
+
                   <button
                     onClick={() =>
                       action({
                         action: "order",
                         id: o.id,
                         status: o.status,
-                        courier: (document.getElementById("c" + o.id) as HTMLInputElement).value,
-                        trackingNumber: (document.getElementById("t" + o.id) as HTMLInputElement).value
+                        courier: (
+                          document.getElementById("c" + o.id) as HTMLInputElement
+                        ).value,
+                        trackingNumber: (
+                          document.getElementById("t" + o.id) as HTMLInputElement
+                        ).value
                       })
                     }
                   >
                     Save tracking
                   </button>
+
                   <button
                     onClick={async () => {
                       const amount = prompt("Refund amount in pounds");
+
                       if (amount) {
                         const r = await fetch("/api/admin/refund", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ orderId: o.id, amount })
                         });
+
                         const x = await r.json();
                         alert(r.ok ? "Refund status: " + x.status : x.error);
                         load();
@@ -544,10 +709,12 @@ export default function Admin() {
         {tab === "Customers" && (
           <article>
             <h2>Customer accounts and admin access</h2>
+
             {data.customers.map((c: any) => (
               <p className="line" key={c.id}>
                 {c.name || "Customer"} · {c.email} · {c.phone || "No phone"} ·{" "}
                 <b>{c.role}</b>{" "}
+
                 <button
                   onClick={() =>
                     action({
