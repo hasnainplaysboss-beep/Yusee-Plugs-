@@ -5,16 +5,18 @@ import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-
 export async function POST(req: Request) {
   try {
-    if (!process.env.STRIPE_SECRET_KEY) {
+    const stripeKey = process.env.STRIPE_SECRET_KEY;
+
+    if (!stripeKey) {
       return NextResponse.json(
         { error: "Stripe is not configured." },
         { status: 500 }
       );
     }
+
+    const stripe = new Stripe(stripeKey);
 
     const body = await req.json();
     const items = body.items;
@@ -26,7 +28,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Combine duplicate variants
     const quantities = new Map<string, number>();
 
     for (const item of items) {
@@ -101,7 +102,8 @@ export async function POST(req: Request) {
         };
       });
 
-    const shippingOption: Stripe.Checkout.SessionCreateParams.ShippingOption =
+    const shippingOption:
+      Stripe.Checkout.SessionCreateParams.ShippingOption =
       subtotal >= 10000
         ? {
             shipping_rate_data: {
