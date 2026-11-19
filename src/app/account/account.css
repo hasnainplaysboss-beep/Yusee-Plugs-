@@ -324,3 +324,39 @@
     grid-template-columns: 1fr;
   }
 }
+
+.changePasswordForm {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  max-width: 500px;
+}
+
+.changePasswordForm label {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+
+.changePasswordForm input {
+  padding: 15px;
+  border: 1px solid #ccc;
+  background: #ebe6dc;
+  color: #111;
+  font-size: 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.changePasswordForm button {
+  padding: 16px;
+  background: #111;
+  color: white;
+  border: none;
+  font-weight: bold;
+  cursor: pointer;
+}
+
