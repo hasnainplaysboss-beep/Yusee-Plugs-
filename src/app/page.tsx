@@ -977,7 +977,7 @@ export default function Home() {
         .heroImage {
           position: absolute;
           inset: 0;
-          background-image: url("/F126698D-BFBB-4540-9DFD-67723C1C9EC3.png");
+         background-image: url("/F126698D-BFBB-4540-9DFD-67723C1C9EC3.png");
           background-size: cover;
           background-position: center 38%;
           transform: scale(1.01);
