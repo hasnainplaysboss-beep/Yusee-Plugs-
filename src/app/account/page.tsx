@@ -85,8 +85,7 @@ export default async function AccountPage() {
     })}
   </strong>
 </div>
-            Need to change your details? Account editing will be added next.
-          </p>
+            
         </section>
 
         <section className="accountPanel" id="orders">
