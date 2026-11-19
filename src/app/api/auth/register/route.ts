@@ -50,10 +50,11 @@ export async function POST(req: Request) {
     });
 
     return res;
-  } catch {
-    return NextResponse.json(
-      { error: "Could not create your account. Please try again." },
-      { status: 500 }
-    );
-  }
+} catch (error) {
+  console.error("CUSTOMER REGISTRATION ERROR:", error);
+
+  return NextResponse.json(
+    { error: "Registration failed. Check server logs." },
+    { status: 500 }
+  );
 }
