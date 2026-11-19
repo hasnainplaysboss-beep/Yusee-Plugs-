@@ -1,0 +1,276 @@
+
+.accountPage {
+  min-height: 100vh;
+  background: #f5f1e9;
+  color: #111;
+  padding: 30px 6%;
+  font-family: Arial, sans-serif;
+}
+
+.accountHeader,
+.accountFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  border-bottom: 1px solid #ccc;
+  padding-bottom: 22px;
+}
+
+.accountLogo,
+.accountFooter a {
+  color: #111;
+  font-size: 22px;
+  font-weight: 900;
+  text-decoration: none;
+  letter-spacing: 2px;
+}
+
+.accountLogo span {
+  color: #888;
+}
+
+.backShop,
+.accountNav a {
+  color: #111;
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  text-decoration: none;
+}
+
+.accountWelcome {
+  padding: 75px 0 45px;
+}
+
+.accountEyebrow {
+  font-size: 10px;
+  letter-spacing: 2px;
+  font-weight: bold;
+}
+
+.accountWelcome h1 {
+  font-size: clamp(42px, 8vw, 90px);
+  line-height: 1;
+  margin: 15px 0;
+  font-weight: 900;
+}
+
+.accountWelcome h1 span {
+  color: #999;
+}
+
+.accountWelcome > p:last-child {
+  color: #666;
+}
+
+.accountNav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 30px;
+  padding: 20px 0;
+  border-top: 1px solid #ccc;
+  border-bottom: 1px solid #ccc;
+}
+
+.accountContent {
+  max-width: 1000px;
+  margin: 40px auto 80px;
+}
+
+.accountPanel {
+  padding: 35px 0;
+  border-bottom: 1px solid #ccc;
+  scroll-margin-top: 25px;
+}
+
+.panelHeading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
+.panelHeading h2 {
+  font-size: 28px;
+  margin: 8px 0;
+  font-weight: 900;
+}
+
+.panelNumber {
+  color: #999;
+  font-size: 25px;
+}
+
+.detailGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 25px;
+}
+
+.detailItem {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+  background: #ebe6dc;
+}
+
+.detailItem span,
+.orderTop span {
+  color: #777;
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+
+.detailItem strong {
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.accountNote {
+  color: #777;
+  font-size: 12px;
+  margin-top: 22px;
+}
+
+.accountEmpty {
+  background: #ebe6dc;
+  padding: 35px;
+}
+
+.accountEmpty h3 {
+  font-size: 23px;
+  margin-top: 0;
+}
+
+.accountEmpty p {
+  color: #666;
+  font-size: 14px;
+}
+
+.accountButton {
+  display: inline-block;
+  background: #111;
+  color: white;
+  padding: 15px 20px;
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: bold;
+  margin-top: 15px;
+}
+
+.orderList {
+  display: grid;
+  gap: 18px;
+}
+
+.orderCard {
+  background: #ebe6dc;
+  padding: 25px;
+}
+
+.orderTop,
+.orderMeta {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.orderTop > div:first-child {
+  display: grid;
+  gap: 8px;
+}
+
+.orderStatus {
+  font-size: 11px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.orderMeta {
+  margin-top: 20px;
+  color: #666;
+  font-size: 12px;
+}
+
+.orderProducts {
+  border-top: 1px solid #ccc;
+  margin-top: 18px;
+  padding-top: 10px;
+  font-size: 13px;
+}
+
+.trackingInfo {
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.rewardsCard {
+  background: #111;
+  color: white;
+  padding: 35px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.rewardsCard > p {
+  font-size: 11px;
+  letter-spacing: 2px;
+}
+
+.rewardsCard > strong {
+  font-size: 55px;
+}
+
+.rewardsCard > strong span {
+  font-size: 13px;
+  letter-spacing: 2px;
+}
+
+.rewardsMessage {
+  color: #bbb;
+  font-size: 12px;
+}
+
+.accountFooter {
+  border-top: 1px solid #ccc;
+  border-bottom: none;
+  padding-top: 25px;
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+
+@media (max-width: 600px) {
+  .accountPage {
+    padding: 20px 5%;
+  }
+
+  .accountHeader {
+    align-items: flex-start;
+  }
+
+  .backShop {
+    font-size: 9px;
+    text-align: right;
+  }
+
+  .accountNav {
+    gap: 18px;
+  }
+
+  .detailGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .accountWelcome {
+    padding: 55px 0 35px;
+  }
+
+  .orderCard,
+  .accountEmpty {
+    padding: 20px;
+  }
+}
