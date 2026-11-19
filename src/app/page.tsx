@@ -34,23 +34,36 @@ export default function Home() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [saved, setSaved] = useState<number[]>([]);
   const [customerSignedIn, setCustomerSignedIn] = useState(false);
+  const [adminSignedIn, setAdminSignedIn] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
 
+  async function checkAuth() {
+    try {
+      const [customerResponse, adminResponse] = await Promise.all([
+        fetch("/api/auth/me", { cache: "no-store" }),
+        fetch("/api/admin/me", { cache: "no-store" })
+      ]);
+
+      const customerData = customerResponse.ok
+        ? await customerResponse.json()
+        : { signedIn: false };
+
+      const adminData = adminResponse.ok
+        ? await adminResponse.json()
+        : { signedIn: false };
+
+      setCustomerSignedIn(customerData.signedIn === true);
+      setAdminSignedIn(adminData.signedIn === true);
+    } catch {
+      setCustomerSignedIn(false);
+      setAdminSignedIn(false);
+    } finally {
+      setAuthChecked(true);
+    }
+  }
+
   useEffect(() => {
-    fetch("/api/auth/me", { cache: "no-store" })
-      .then(res => {
-        if (!res.ok) throw new Error("Could not check session");
-        return res.json();
-      })
-      .then(data => {
-        setCustomerSignedIn(data.signedIn === true);
-      })
-      .catch(() => {
-        setCustomerSignedIn(false);
-      })
-      .finally(() => {
-        setAuthChecked(true);
-      });
+    checkAuth();
   }, []);
 
   const visible = useMemo(() => products.filter(p =>
@@ -63,15 +76,17 @@ export default function Home() {
 
   async function handleSignOut() {
     try {
-      const response = await fetch("/api/auth/logout", {
-        method: "POST"
-      });
+      const responses = await Promise.all([
+        fetch("/api/auth/logout", { method: "POST" }),
+        fetch("/api/admin/logout", { method: "POST" })
+      ]);
 
-      if (!response.ok) {
+      if (responses.some(response => !response.ok)) {
         throw new Error("Sign out failed");
       }
 
       setCustomerSignedIn(false);
+      setAdminSignedIn(false);
       setMenuOpen(false);
       window.location.reload();
     } catch {
@@ -191,7 +206,19 @@ export default function Home() {
           </div>
           <div className="footerLinks">
             <div><b>SHOP</b><a href="#shop">New arrivals</a><a href="#shop">Men</a><a href="#shop">Women</a><a href="#shop">Accessories</a></div>
-            <div><b>ACCOUNT</b><Link href="/login">Sign in</Link><Link href="/register">Create account</Link></div>
+            <div>
+              <b>ACCOUNT</b>
+              {adminSignedIn ? (
+                <Link href="/admin">Admin dashboard</Link>
+              ) : customerSignedIn ? (
+                <Link href="/account">My account</Link>
+              ) : (
+                <>
+                  <Link href="/login">Sign in</Link>
+                  <Link href="/register">Create account</Link>
+                </>
+              )}
+            </div>
             <div><b>HELP</b><a href="mailto:hello@yuseeplugs.com">Contact us</a><a href="#">Delivery & returns</a><a href="#">FAQs</a></div>
           </div>
         </div>
@@ -208,6 +235,15 @@ export default function Home() {
 
             {!authChecked ? (
               <p className="signIn">CHECKING ACCOUNT...</p>
+            ) : adminSignedIn ? (
+              <>
+                <Link className="signIn" href="/admin" onClick={() => setMenuOpen(false)}>
+                  ADMIN DASHBOARD <ArrowUpRight size={16}/>
+                </Link>
+                <button className="signIn" onClick={handleSignOut}>
+                  SIGN OUT <ArrowUpRight size={16}/>
+                </button>
+              </>
             ) : customerSignedIn ? (
               <>
                 <Link className="signIn" href="/account" onClick={() => setMenuOpen(false)}>
