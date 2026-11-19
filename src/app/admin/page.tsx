@@ -10,6 +10,20 @@ const cash = (p: number) =>
     currency: "GBP"
   }).format((p || 0) / 100);
 
+type Variant = {
+  size: string;
+  colour: string;
+  price: string;
+  stock: string;
+};
+
+const emptyVariant = (): Variant => ({
+  size: "",
+  colour: "",
+  price: "35",
+  stock: "10"
+});
+
 export default function Admin() {
   const [email, E] = useState("");
   const [password, P] = useState("");
@@ -29,14 +43,12 @@ export default function Admin() {
   const [f, F] = useState({
     name: "",
     gender: "Men",
-    category: "Clothing",
+    category: "",
     description: "",
-    imageUrl: "",
-    size: "M",
-    colour: "Black",
-    price: "35",
-    stock: "10"
+    imageUrl: ""
   });
+
+  const [variants, V] = useState<Variant[]>([emptyVariant()]);
 
   async function load() {
     const r = await fetch("/api/admin/data");
@@ -56,11 +68,8 @@ export default function Admin() {
       body: JSON.stringify({ email, password })
     });
 
-    if (r.ok) {
-      O(true);
-    } else {
-      M("Login failed. Check your admin account.");
-    }
+    if (r.ok) O(true);
+    else M("Login failed. Check your admin account.");
   }
 
   async function action(body: any) {
@@ -86,11 +95,13 @@ export default function Admin() {
 
     if (!file.type.startsWith("image/")) {
       alert("Please choose an image.");
+      e.target.value = "";
       return;
     }
 
     if (file.size > 8 * 1024 * 1024) {
       alert("Please choose an image smaller than 8MB.");
+      e.target.value = "";
       return;
     }
 
@@ -101,11 +112,29 @@ export default function Admin() {
     reader.readAsDataURL(file);
   }
 
+  function updateVariant(index: number, field: keyof Variant, value: string) {
+    V(current =>
+      current.map((variant, i) =>
+        i === index ? { ...variant, [field]: value } : variant
+      )
+    );
+  }
+
   async function saveProduct(e: any) {
     e.preventDefault();
 
-    if (!f.name.trim()) {
-      alert("Enter a product name.");
+    if (!f.name.trim() || !f.category.trim()) {
+      alert("Enter a product name and category.");
+      return;
+    }
+
+    if (variants.some(v => !v.size.trim() || !v.colour.trim() || !v.price || !v.stock)) {
+      alert("Please complete every field for each variant.");
+      return;
+    }
+
+    if (variants.some(v => Number(v.price) < 0 || Number(v.stock) < 0)) {
+      alert("Price and stock cannot be negative.");
       return;
     }
 
@@ -135,26 +164,27 @@ export default function Admin() {
 
       const saved = await action({
         action: "product",
-        ...f,
+        name: f.name,
         category: `${f.gender} / ${f.category}`,
+        description: f.description,
         imageUrl,
-        variants: [
-          {
-            size: f.size,
-            colour: f.colour,
-            price: f.price,
-            stock: f.stock
-          }
-        ]
+        variants: variants.map(v => ({
+          size: v.size,
+          colour: v.colour,
+          price: v.price,
+          stock: v.stock
+        }))
       });
 
       if (saved) {
         F({
-          ...f,
           name: "",
+          gender: "Men",
+          category: "",
           description: "",
           imageUrl: ""
         });
+        V([emptyVariant()]);
         SF(null);
         SP("");
         alert("Product saved successfully.");
@@ -237,9 +267,7 @@ export default function Admin() {
               </article>
               <article>
                 <small>Customers</small>
-                <b>
-                  {data.customers.filter((c: any) => c.role === "CUSTOMER").length}
-                </b>
+                <b>{data.customers.filter((c: any) => c.role === "CUSTOMER").length}</b>
               </article>
             </div>
             <p className="note">
@@ -253,8 +281,7 @@ export default function Admin() {
             <h2>Revenue</h2>
             <strong className="big">{cash(data.revenue * 100)}</strong>
             <p className="note">
-              Net total of paid orders less successful refunds. Historical
-              graphs will populate when paid orders are being recorded.
+              Net total of paid orders less successful refunds.
             </p>
           </article>
         )}
@@ -265,14 +292,15 @@ export default function Admin() {
               <h2>Add a product</h2>
 
               <form className="productForm" onSubmit={saveProduct}>
+                <label>Product name</label>
                 <input
-                  placeholder="Product name"
+                  placeholder="Enter product name"
                   value={f.name}
                   onChange={e => F({ ...f, name: e.target.value })}
                   required
                 />
 
-                <label>Choose who this product is for</label>
+                <label>Gender</label>
                 <select
                   value={f.gender}
                   onChange={e => F({ ...f, gender: e.target.value })}
@@ -281,16 +309,13 @@ export default function Admin() {
                   <option value="Women">Women</option>
                 </select>
 
-                <label>Product type</label>
-                <select
+                <label>Category</label>
+                <input
+                  placeholder="e.g. Hoodies & jumpers, Shoes, Leggings"
                   value={f.category}
                   onChange={e => F({ ...f, category: e.target.value })}
-                >
-                  <option>Clothing</option>
-                  <option>Footwear</option>
-                  <option>Accessories</option>
-                  <option>Tracksuits</option>
-                </select>
+                  required
+                />
 
                 <label>Product image</label>
                 <input
@@ -324,8 +349,7 @@ export default function Admin() {
                 )}
 
                 <p className="note">
-                  Choose a photo from your iPhone library or Files.
-                  Maximum image size: 8MB.
+                  Choose a photo from your iPhone library or Files. Maximum 8MB.
                 </p>
 
                 <label>Or enter an image URL</label>
@@ -335,43 +359,96 @@ export default function Admin() {
                   onChange={e => F({ ...f, imageUrl: e.target.value })}
                 />
 
-                <input
-                  placeholder="Description"
+                <label>Description</label>
+                <textarea
+                  placeholder="Describe your product"
                   value={f.description}
                   onChange={e => F({ ...f, description: e.target.value })}
                 />
 
-                <h3>Variant</h3>
+                <h3>Product variants</h3>
+                <p className="note">
+                  Add each size and colour combination separately. Set the price
+                  and stock for each combination.
+                </p>
 
-                <select
-                  value={f.size}
-                  onChange={e => F({ ...f, size: e.target.value })}
+                {variants.map((variant, index) => (
+                  <div
+                    key={index}
+                    style={{
+                      border: "1px solid #ccc",
+                      borderRadius: "8px",
+                      padding: "14px",
+                      marginBottom: "14px"
+                    }}
+                  >
+                    <h3>Variant {index + 1}</h3>
+
+                    <label>Size</label>
+                    <input
+                      placeholder="e.g. Small, Medium, UK 9"
+                      value={variant.size}
+                      onChange={e =>
+                        updateVariant(index, "size", e.target.value)
+                      }
+                      required
+                    />
+
+                    <label>Colour</label>
+                    <input
+                      placeholder="e.g. Black, White, Grey"
+                      value={variant.colour}
+                      onChange={e =>
+                        updateVariant(index, "colour", e.target.value)
+                      }
+                      required
+                    />
+
+                    <label>Price (£)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="Enter price in pounds"
+                      value={variant.price}
+                      onChange={e =>
+                        updateVariant(index, "price", e.target.value)
+                      }
+                      required
+                    />
+
+                    <label>Stock quantity</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      placeholder="How many are available?"
+                      value={variant.stock}
+                      onChange={e =>
+                        updateVariant(index, "stock", e.target.value)
+                      }
+                      required
+                    />
+
+                    {variants.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          V(current => current.filter((_, i) => i !== index))
+                        }
+                      >
+                        Remove this variant
+                      </button>
+                    )}
+                  </div>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={() => V(current => [...current, emptyVariant()])}
                 >
-                  {["XS", "S", "M", "L", "XL", "XXL", "One size"].map(x => (
-                    <option key={x}>{x}</option>
-                  ))}
-                </select>
-
-                <input
-                  placeholder="Colour"
-                  value={f.colour}
-                  onChange={e => F({ ...f, colour: e.target.value })}
-                />
-
-                <input
-                  type="number"
-                  step=".01"
-                  placeholder="Price (£)"
-                  value={f.price}
-                  onChange={e => F({ ...f, price: e.target.value })}
-                />
-
-                <input
-                  type="number"
-                  placeholder="Stock"
-                  value={f.stock}
-                  onChange={e => F({ ...f, stock: e.target.value })}
-                />
+                  + Add another variant
+                </button>
 
                 <button type="submit" disabled={uploading}>
                   {uploading ? "Uploading and saving..." : "Save product"}
@@ -385,11 +462,7 @@ export default function Admin() {
                 <p className="line" key={p.id}>
                   <b>{p.name}</b> · {p.category || "Uncategorised"} ·{" "}
                   {p.variants.length} variants ·{" "}
-                  {p.variants.reduce(
-                    (s: number, v: any) => s + v.stock,
-                    0
-                  )}{" "}
-                  in stock
+                  {p.variants.reduce((s: number, v: any) => s + v.stock, 0)} in stock
                 </p>
               ))}
             </article>
@@ -399,32 +472,21 @@ export default function Admin() {
         {tab === "Orders" && (
           <article>
             <h2>Orders</h2>
-
             {data.orders.map((o: any) => (
               <details key={o.id}>
                 <summary>
                   {o.orderNumber} · {o.customerName} · {cash(o.totalPence)}
                 </summary>
-
                 <p>{o.customerEmail} · {o.customerPhone || "No phone"}</p>
-
                 <p>
-                  {[
-                    o.addressLine1,
-                    o.addressLine2,
-                    o.city,
-                    o.county,
-                    o.postcode,
-                    o.country
-                  ].filter(Boolean).join(", ")}
+                  {[o.addressLine1, o.addressLine2, o.city, o.county, o.postcode, o.country]
+                    .filter(Boolean).join(", ")}
                 </p>
-
                 <p>
                   {o.items.map((i: any) =>
                     `${i.productName} ${i.size || ""} ${i.colour || ""} ×${i.quantity}`
                   ).join(", ")}
                 </p>
-
                 <div className="row">
                   <select
                     defaultValue={o.status}
@@ -438,19 +500,11 @@ export default function Admin() {
                       })
                     }
                   >
-                    {[
-                      "PENDING",
-                      "PROCESSING",
-                      "PACKED",
-                      "SHIPPED",
-                      "DELIVERED",
-                      "CANCELLED"
-                    ].map(x => <option key={x}>{x}</option>)}
+                    {["PENDING", "PROCESSING", "PACKED", "SHIPPED", "DELIVERED", "CANCELLED"]
+                      .map(x => <option key={x}>{x}</option>)}
                   </select>
-
                   <input placeholder="Courier" id={"c" + o.id} />
                   <input placeholder="Tracking number" id={"t" + o.id} />
-
                   <button
                     onClick={() =>
                       action({
@@ -464,7 +518,6 @@ export default function Admin() {
                   >
                     Save tracking
                   </button>
-
                   <button
                     onClick={async () => {
                       const amount = prompt("Refund amount in pounds");
@@ -491,7 +544,6 @@ export default function Admin() {
         {tab === "Customers" && (
           <article>
             <h2>Customer accounts and admin access</h2>
-
             {data.customers.map((c: any) => (
               <p className="line" key={c.id}>
                 {c.name || "Customer"} · {c.email} · {c.phone || "No phone"} ·{" "}
