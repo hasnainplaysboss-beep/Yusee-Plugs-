@@ -28,6 +28,7 @@ type Product = {
   description: string | null;
   category: string | null;
   imageUrl: string | null;
+  featured: boolean;
   variants: Variant[];
 };
 
@@ -171,7 +172,8 @@ export default function Home() {
     });
   }, [products, active, query]);
 
-  const featuredProducts = products.slice(0, 4);
+  // Only products selected as Featured in the admin dashboard appear here.
+  const featuredProducts = products.filter(product => product.featured === true);
 
   function selectGender(gender: "men" | "women") {
     setActive(gender === "men" ? "Men" : "Women");
@@ -421,7 +423,7 @@ export default function Home() {
         ) : productsError ? (
           <p className="statusMessage">{productsError}</p>
         ) : featuredProducts.length === 0 ? (
-          <p className="statusMessage">NEW PRODUCTS COMING SOON.</p>
+          <p className="statusMessage">NO FEATURED PRODUCTS SELECTED.</p>
         ) : (
           <div className="featuredGrid">
             {featuredProducts.map(product => {
@@ -741,15 +743,11 @@ export default function Home() {
             </div>
 
             <div className="drawerGroup">
-              <button onClick={() => selectGender("men")}>
-                MENS
-              </button>
+              <button onClick={() => selectGender("men")}>MENS</button>
             </div>
 
             <div className="drawerGroup">
-              <button onClick={() => selectGender("women")}>
-                WOMENS
-              </button>
+              <button onClick={() => selectGender("women")}>WOMENS</button>
             </div>
           </aside>
         </div>
@@ -977,7 +975,7 @@ export default function Home() {
         .heroImage {
           position: absolute;
           inset: 0;
-         background-image: url("/F126698D-BFBB-4540-9DFD-67723C1C9EC3.png");
+          background-image: url("/F126698D-BFBB-4540-9DFD-67723C1C9EC3.png");
           background-size: cover;
           background-position: center 38%;
           transform: scale(1.01);
@@ -986,7 +984,8 @@ export default function Home() {
         .heroOverlay {
           position: absolute;
           inset: 0;
-          background: linear-gradient(90deg, rgba(0,0,0,.76) 0%, rgba(0,0,0,.48) 43%, rgba(0,0,0,.08) 100%),
+          background:
+            linear-gradient(90deg, rgba(0,0,0,.76) 0%, rgba(0,0,0,.48) 43%, rgba(0,0,0,.08) 100%),
             linear-gradient(0deg, rgba(0,0,0,.48), transparent 28%);
         }
 
@@ -1286,10 +1285,32 @@ export default function Home() {
           border-top: 1px solid #282828;
         }
 
+        /* Consistent footer text sizing on every screen size. */
+        .footer,
+        .footer * {
+          font-family: Arial, Helvetica, sans-serif;
+        }
+
+        .footer .logo,
+        .footerBrand p,
+        .footerColumns b,
+        .footerColumns a,
+        .footerColumns button,
+        .footerBottom {
+          font-size: 10px !important;
+          line-height: 1.5 !important;
+        }
+
+        .footer .logo {
+          display: inline-block;
+          color: #fff;
+          font-weight: 900;
+          letter-spacing: 1px;
+          text-decoration: none;
+        }
+
         .footerBrand p {
           color: #999;
-          font-size: 10px;
-          line-height: 1.8;
           letter-spacing: 1.5px;
           margin: 13px 0 35px;
         }
@@ -1307,26 +1328,35 @@ export default function Home() {
           flex-direction: column;
           align-items: flex-start;
           gap: 12px;
+          min-width: 0;
         }
 
         .footerColumns b {
-          font-size: 10px;
+          color: #fff;
+          font-weight: 800 !important;
           letter-spacing: 1.5px;
           margin-bottom: 5px;
         }
 
-       .footerColumns a,
-.footerColumns button {
-  padding: 0;
-  color: #999;
-  background: transparent;
-  border: 0;
-  text-decoration: none;
-  font-size: 10px !important;
-  line-height: 1.4 !important;
-  font-weight: 400 !important;
-  cursor: pointer;
-}
+        .footerColumns a,
+        .footerColumns button {
+          padding: 0 !important;
+          color: #999 !important;
+          background: transparent !important;
+          border: 0 !important;
+          text-decoration: none !important;
+          font-size: 10px !important;
+          line-height: 1.5 !important;
+          font-weight: 400 !important;
+          letter-spacing: 0 !important;
+          cursor: pointer;
+          text-align: left;
+        }
+
+        .footerColumns a:hover,
+        .footerColumns button:hover {
+          color: #fff !important;
+        }
 
         .footerBottom {
           padding-top: 17px;
@@ -1335,7 +1365,6 @@ export default function Home() {
           justify-content: space-between;
           gap: 15px;
           color: #777;
-          font-size: 9px;
           letter-spacing: .8px;
         }
 
@@ -1668,7 +1697,8 @@ export default function Home() {
           }
 
           .heroOverlay {
-            background: linear-gradient(90deg, rgba(0,0,0,.76), rgba(0,0,0,.12)),
+            background:
+              linear-gradient(90deg, rgba(0,0,0,.76), rgba(0,0,0,.12)),
               linear-gradient(0deg, rgba(0,0,0,.5), transparent 35%);
           }
 
@@ -1770,14 +1800,19 @@ export default function Home() {
             gap: 12px;
           }
 
+          /* Keep footer text the same size on mobile too. */
+          .footer .logo,
+          .footerBrand p,
+          .footerColumns b,
           .footerColumns a,
-          .footerColumns button {
-            font-size: 9px;
+          .footerColumns button,
+          .footerBottom {
+            font-size: 10px !important;
+            line-height: 1.5 !important;
           }
 
           .footerBottom {
             flex-direction: column;
-            font-size: 8px;
           }
         }
 
