@@ -70,30 +70,21 @@ export default async function AccountPage() {
             <span className="panelNumber">01</span>
           </div>
 
-          <div className="detailGrid">
-            <div className="detailItem">
-              <span>FULL NAME</span>
-              <strong>{customer.name || "Not added"}</strong>
-            </div>
-            <div className="detailItem">
-              <span>EMAIL ADDRESS</span>
-              <strong>{customer.email}</strong>
-            </div>
-            <div className="detailItem">
-              <span>PHONE NUMBER</span>
-              <strong>{customer.phone || "Not added"}</strong>
-            </div>
-            <div className="detailItem">
-              <span>MEMBER SINCE</span>
-              <strong>
-                {new Date(customer.createdAt).toLocaleDateString("en-GB", {
-                  month: "long",
-                  year: "numeric"
-                })}
-              </strong>
-            </div>
-          </div>
-          <p className="accountNote">
+    <AccountDetailsForm
+  name={customer.name || ""}
+  email={customer.email}
+  phone={customer.phone || ""}
+/>
+
+<div className="detailItem" style={{ marginTop: "20px" }}>
+  <span>MEMBER SINCE</span>
+  <strong>
+    {new Date(customer.createdAt).toLocaleDateString("en-GB", {
+      month: "long",
+      year: "numeric"
+    })}
+  </strong>
+</div>
             Need to change your details? Account editing will be added next.
           </p>
         </section>
