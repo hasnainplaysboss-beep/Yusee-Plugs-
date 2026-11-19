@@ -1,4 +1,4 @@
-
+import "./account.css";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { requireCustomer } from "@/lib/customer-auth";
