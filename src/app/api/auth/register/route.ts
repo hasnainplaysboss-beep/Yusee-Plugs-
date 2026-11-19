@@ -7,18 +7,21 @@ import { signCustomer } from "@/lib/customer-auth";
 export async function POST(req: Request) {
   try {
     const body = await req.json();
+
     const name = String(body.name || "").trim();
     const email = String(body.email || "").toLowerCase().trim();
     const password = String(body.password || "");
 
     if (!name || !email || !email.includes("@") || password.length < 8) {
       return NextResponse.json(
-        { error: "Enter your name, a valid email and a password of at least 8 characters." },
+        { error: "Enter your name, valid email and password of at least 8 characters." },
         { status: 400 }
       );
     }
 
-    const existing = await prisma.user.findUnique({ where: { email } });
+    const existing = await prisma.user.findUnique({
+      where: { email }
+    });
 
     if (existing) {
       return NextResponse.json(
@@ -39,6 +42,7 @@ export async function POST(req: Request) {
     });
 
     const token = await signCustomer(user.id, user.email);
+
     const res = NextResponse.json({ ok: true });
 
     res.cookies.set("yusee_customer", token, {
@@ -50,11 +54,12 @@ export async function POST(req: Request) {
     });
 
     return res;
-} catch (error) {
-  console.error("CUSTOMER REGISTRATION ERROR:", error);
+  } catch (error) {
+    console.error("CUSTOMER REGISTRATION ERROR:", error);
 
-  return NextResponse.json(
-    { error: "Registration failed. Check server logs." },
-    { status: 500 }
-  );
+    return NextResponse.json(
+      { error: "Registration failed. Check server logs." },
+      { status: 500 }
+    );
+  }
 }
