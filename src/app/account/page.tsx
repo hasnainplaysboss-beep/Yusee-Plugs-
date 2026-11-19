@@ -1,3 +1,4 @@
+
 import ChangePasswordForm from "./ChangePasswordForm";
 import AccountDetailsForm from "./AccountDetailsForm";
 import "./account.css";
@@ -45,7 +46,9 @@ export default async function AccountPage() {
         <Link href="/" className="accountLogo">
           YUSEE<span>PLUGS</span>
         </Link>
-        <Link href="/" className="backShop">CONTINUE SHOPPING ↗</Link>
+        <Link href="/" className="backShop">
+          CONTINUE SHOPPING ↗
+        </Link>
       </header>
 
       <section className="accountWelcome">
@@ -56,12 +59,15 @@ export default async function AccountPage() {
 
       <nav className="accountNav">
         <a href="#details">MY DETAILS</a>
+        <a href="#security">CHANGE PASSWORD</a>
         <a href="#orders">MY ORDERS</a>
         <a href="#rewards">MY REWARDS</a>
         <a href="#wishlist">MY WISHLIST</a>
       </nav>
 
       <div className="accountContent">
+
+        {/* MY DETAILS */}
         <section className="accountPanel" id="details">
           <div className="panelHeading">
             <div>
@@ -71,38 +77,53 @@ export default async function AccountPage() {
             <span className="panelNumber">01</span>
           </div>
 
-    <AccountDetailsForm
-  name={customer.name || ""}
-  email={customer.email}
-  phone={customer.phone || ""}
-/>
+          <AccountDetailsForm
+            name={customer.name || ""}
+            email={customer.email}
+            phone={customer.phone || ""}
+          />
 
-<div className="detailItem" style={{ marginTop: "20px" }}>
-  <span>MEMBER SINCE</span>
-  <strong>
-    {new Date(customer.createdAt).toLocaleDateString("en-GB", {
-      month: "long",
-      year: "numeric"
-    })}
-  </strong>
-</div>
-            
+          <div className="detailItem" style={{ marginTop: "20px" }}>
+            <span>MEMBER SINCE</span>
+            <strong>
+              {new Date(customer.createdAt).toLocaleDateString("en-GB", {
+                month: "long",
+                year: "numeric"
+              })}
+            </strong>
+          </div>
         </section>
 
+        {/* CHANGE PASSWORD */}
+        <section className="accountPanel" id="security">
+          <div className="panelHeading">
+            <div>
+              <p className="accountEyebrow">KEEP YOUR ACCOUNT SECURE</p>
+              <h2>CHANGE PASSWORD</h2>
+            </div>
+            <span className="panelNumber">02</span>
+          </div>
+
+          <ChangePasswordForm />
+        </section>
+
+        {/* MY ORDERS */}
         <section className="accountPanel" id="orders">
           <div className="panelHeading">
             <div>
               <p className="accountEyebrow">YOUR PURCHASE HISTORY</p>
               <h2>MY ORDERS</h2>
             </div>
-            <span className="panelNumber">02</span>
+            <span className="panelNumber">03</span>
           </div>
 
           {orders.length === 0 ? (
             <div className="accountEmpty">
               <h3>NOTHING HERE YET.</h3>
               <p>Your orders will appear here when you shop with us.</p>
-              <Link href="/" className="accountButton">START SHOPPING ↗</Link>
+              <Link href="/" className="accountButton">
+                START SHOPPING ↗
+              </Link>
             </div>
           ) : (
             <div className="orderList">
@@ -148,13 +169,14 @@ export default async function AccountPage() {
           )}
         </section>
 
+        {/* MY REWARDS */}
         <section className="accountPanel" id="rewards">
           <div className="panelHeading">
             <div>
               <p className="accountEyebrow">EXCLUSIVE MEMBER BENEFITS</p>
               <h2>MY REWARDS</h2>
             </div>
-            <span className="panelNumber">03</span>
+            <span className="panelNumber">04</span>
           </div>
 
           <div className="rewardsCard">
@@ -164,19 +186,20 @@ export default async function AccountPage() {
               Your rewards journey starts here.
             </span>
           </div>
+
           <p className="accountNote">
-            Rewards points and benefits are not active yet. We'll add them when
-            the rewards programme is connected.
+            Rewards points and benefits are not active yet.
           </p>
         </section>
 
+        {/* MY WISHLIST */}
         <section className="accountPanel" id="wishlist">
           <div className="panelHeading">
             <div>
               <p className="accountEyebrow">THE PIECES YOU LOVE</p>
               <h2>MY WISHLIST</h2>
             </div>
-            <span className="panelNumber">04</span>
+            <span className="panelNumber">05</span>
           </div>
 
           <div className="accountEmpty">
@@ -185,17 +208,18 @@ export default async function AccountPage() {
               Your saved items will appear here once wishlist saving is
               connected to your account.
             </p>
-            <Link href="/" className="accountButton">EXPLORE THE COLLECTION ↗</Link>
+            <Link href="/" className="accountButton">
+              EXPLORE THE COLLECTION ↗
+            </Link>
           </div>
         </section>
+
       </div>
 
       <footer className="accountFooter">
         <Link href="/">YUSEE PLUGS</Link>
         <span>BUILT FOR YOUR EVERYDAY.</span>
       </footer>
-
-  
     </main>
   );
 }
