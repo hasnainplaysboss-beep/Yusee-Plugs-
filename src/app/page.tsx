@@ -4,8 +4,14 @@
 import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import {
-  Menu, ShoppingBag, Search, X, ArrowUpRight, Plus,
-  Heart, ChevronDown
+  Menu,
+  ShoppingBag,
+  Search,
+  X,
+  ArrowUpRight,
+  Plus,
+  Heart,
+  ChevronDown
 } from "lucide-react";
 
 type Variant = {
@@ -37,7 +43,9 @@ function getGender(category: string | null) {
 
 function getCategory(category: string | null) {
   const parts = category?.split("/") || [];
-  return parts.length > 1 ? parts.slice(1).join("/").trim() : parts[0]?.trim() || "Other";
+  return parts.length > 1
+    ? parts.slice(1).join("/").trim()
+    : parts[0]?.trim() || "Other";
 }
 
 export default function Home() {
@@ -55,6 +63,7 @@ export default function Home() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [saved, setSaved] = useState<string[]>([]);
   const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [customerSignedIn, setCustomerSignedIn] = useState(false);
   const [adminSignedIn, setAdminSignedIn] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
@@ -89,8 +98,10 @@ export default function Home() {
   useEffect(() => {
     try {
       const stored = localStorage.getItem("yusee_bag");
+
       if (stored) {
         const parsed = JSON.parse(stored);
+
         if (Array.isArray(parsed)) {
           setBag(parsed);
         }
@@ -137,6 +148,26 @@ export default function Home() {
     checkAuth();
   }, []);
 
+  useEffect(() => {
+    if (!selectedProduct) return;
+
+    const original = selectedVariants[selectedProduct.id];
+
+    const available =
+      selectedProduct.variants.find(
+        variant => variant.id === original && variant.stock > 0
+      ) ||
+      selectedProduct.variants.find(variant => variant.stock > 0) ||
+      selectedProduct.variants[0];
+
+    if (available) {
+      setSelectedVariants(old => ({
+        ...old,
+        [selectedProduct.id]: available.id
+      }));
+    }
+  }, [selectedProduct]);
+
   const filters = useMemo(() => {
     const genders = products
       .map(p => getGender(p.category))
@@ -170,7 +201,12 @@ export default function Home() {
 
   function getSelectedVariant(product: Product) {
     const selectedId = selectedVariants[product.id];
-    return product.variants.find(v => v.id === selectedId) || product.variants[0];
+
+    return (
+      product.variants.find(v => v.id === selectedId) ||
+      product.variants.find(v => v.stock > 0) ||
+      product.variants[0]
+    );
   }
 
   function changeSize(product: Product, size: string) {
@@ -178,7 +214,13 @@ export default function Home() {
 
     const match =
       product.variants.find(
-        v => v.size === size && v.colour === current?.colour
+        v =>
+          v.size === size &&
+          v.colour === current?.colour &&
+          v.stock > 0
+      ) ||
+      product.variants.find(
+        v => v.size === size && v.stock > 0
       ) ||
       product.variants.find(v => v.size === size);
 
@@ -195,7 +237,13 @@ export default function Home() {
 
     const match =
       product.variants.find(
-        v => v.colour === colour && v.size === current?.size
+        v =>
+          v.colour === colour &&
+          v.size === current?.size &&
+          v.stock > 0
+      ) ||
+      product.variants.find(
+        v => v.colour === colour && v.stock > 0
       ) ||
       product.variants.find(v => v.colour === colour);
 
@@ -222,7 +270,51 @@ export default function Home() {
       return [...old, { variantId: variant.id, quantity: 1 }];
     });
 
+    setSelectedProduct(null);
     setBagOpen(true);
+  }
+
+  async function startCheckout(items: BagLine[]) {
+    if (items.length === 0) return;
+
+    setCheckoutLoading(true);
+
+    try {
+      const response = await fetch("/api/checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ items })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.url) {
+        throw new Error(data.error || "Could not start checkout.");
+      }
+
+      window.location.href = data.url;
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Could not start checkout."
+      );
+
+      setCheckoutLoading(false);
+    }
+  }
+
+  async function buyNow(variant: Variant) {
+    if (variant.stock < 1) return;
+
+    await startCheckout([
+      {
+        variantId: variant.id,
+        quantity: 1
+      }
+    ]);
   }
 
   const bagItems = bag
@@ -249,39 +341,12 @@ export default function Home() {
   );
 
   async function handleCheckout() {
-    if (bagItems.length === 0) return;
-
-    setCheckoutLoading(true);
-
-    try {
-      const response = await fetch("/api/checkout", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          items: bag.map(item => ({
-            variantId: item.variantId,
-            quantity: item.quantity
-          }))
-        })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || !data.url) {
-        throw new Error(data.error || "Could not start checkout.");
-      }
-
-      window.location.href = data.url;
-    } catch (error) {
-      alert(
-        error instanceof Error
-          ? error.message
-          : "Could not start checkout."
-      );
-      setCheckoutLoading(false);
-    }
+    await startCheckout(
+      bagItems.map(item => ({
+        variantId: item.variantId,
+        quantity: item.quantity
+      }))
+    );
   }
 
   async function handleSignOut() {
@@ -304,6 +369,30 @@ export default function Home() {
     }
   }
 
+  const modalVariant = selectedProduct
+    ? getSelectedVariant(selectedProduct)
+    : undefined;
+
+  const modalSizes = selectedProduct
+    ? Array.from(
+        new Set(
+          selectedProduct.variants
+            .map(v => v.size)
+            .filter((v): v is string => Boolean(v))
+        )
+      )
+    : [];
+
+  const modalColours = selectedProduct
+    ? Array.from(
+        new Set(
+          selectedProduct.variants
+            .map(v => v.colour)
+            .filter((v): v is string => Boolean(v))
+        )
+      )
+    : [];
+
   return (
     <main>
       <div className="announcement">
@@ -311,8 +400,12 @@ export default function Home() {
       </div>
 
       <header className="header">
-        <button className="iconButton" aria-label="Open menu" onClick={() => setMenuOpen(true)}>
-          <Menu size={25}/>
+        <button
+          className="iconButton"
+          aria-label="Open menu"
+          onClick={() => setMenuOpen(true)}
+        >
+          <Menu size={25} />
         </button>
 
         <Link className="wordmark" href="/">
@@ -320,12 +413,20 @@ export default function Home() {
         </Link>
 
         <div className="headerActions">
-          <button className="iconButton" aria-label="Search" onClick={() => setSearchOpen(!searchOpen)}>
-            <Search size={21}/>
+          <button
+            className="iconButton"
+            aria-label="Search"
+            onClick={() => setSearchOpen(!searchOpen)}
+          >
+            <Search size={21} />
           </button>
 
-          <button className="iconButton bagButton" aria-label="Open bag" onClick={() => setBagOpen(true)}>
-            <ShoppingBag size={22}/>
+          <button
+            className="iconButton bagButton"
+            aria-label="Open bag"
+            onClick={() => setBagOpen(true)}
+          >
+            <ShoppingBag size={22} />
             <span className="bagCount">{bagCount}</span>
           </button>
         </div>
@@ -333,27 +434,34 @@ export default function Home() {
 
       {searchOpen && (
         <div className="searchBar">
-          <Search size={18}/>
+          <Search size={18} />
           <input
             autoFocus
             placeholder="Search the collection..."
             value={query}
             onChange={e => setQuery(e.target.value)}
           />
-          <button onClick={() => { setQuery(""); setSearchOpen(false); }}>
-            <X size={18}/>
+          <button
+            onClick={() => {
+              setQuery("");
+              setSearchOpen(false);
+            }}
+          >
+            <X size={18} />
           </button>
         </div>
       )}
 
       <section className="hero">
-        <div className="heroShade"/>
+        <div className="heroShade" />
         <div className="heroContent">
           <p className="eyebrow light">THE NEW STANDARD</p>
-          <h1>OWN YOUR<br/><i>EVERYDAY.</i></h1>
-          <p className="heroCopy">The pieces you reach for. The details that set you apart.</p>
+          <h1>OWN YOUR<br /><i>EVERYDAY.</i></h1>
+          <p className="heroCopy">
+            The pieces you reach for. The details that set you apart.
+          </p>
           <a className="lightButton" href="#shop">
-            SHOP THE DROP <ArrowUpRight size={17}/>
+            SHOP THE DROP <ArrowUpRight size={17} />
           </a>
         </div>
         <div className="heroMeta">
@@ -374,20 +482,28 @@ export default function Home() {
             <p className="eyebrow">FIND YOUR FIT</p>
             <h2>THE LINE-UP</h2>
           </div>
-          <p>Built around you.<br/>Styled your way.</p>
+          <p>Built around you.<br />Styled your way.</p>
         </div>
 
         <div className="categoryTiles">
-          <a className="categoryTile menTile" href="#shop" onClick={() => setActive("Men")}>
+          <a
+            className="categoryTile menTile"
+            href="#shop"
+            onClick={() => setActive("Men")}
+          >
             <span>01 / THE MENS EDIT</span>
             <strong>MEN</strong>
-            <b>SHOP NOW <ArrowUpRight size={16}/></b>
+            <b>SHOP NOW <ArrowUpRight size={16} /></b>
           </a>
 
-          <a className="categoryTile womenTile" href="#shop" onClick={() => setActive("Women")}>
+          <a
+            className="categoryTile womenTile"
+            href="#shop"
+            onClick={() => setActive("Women")}
+          >
             <span>02 / THE WOMENS EDIT</span>
             <strong>WOMEN</strong>
-            <b>SHOP NOW <ArrowUpRight size={16}/></b>
+            <b>SHOP NOW <ArrowUpRight size={16} /></b>
           </a>
         </div>
       </section>
@@ -400,7 +516,7 @@ export default function Home() {
           </div>
 
           <button className="textLink" onClick={() => setActive("All")}>
-            VIEW ALL <ArrowUpRight size={16}/>
+            VIEW ALL <ArrowUpRight size={16} />
           </button>
         </div>
 
@@ -433,103 +549,76 @@ export default function Home() {
         {!productsLoading && !productsError && (
           <div className="productGrid">
             {visible.map(product => {
-              const variant = getSelectedVariant(product);
-
-              const sizes = Array.from(
-                new Set(product.variants.map(v => v.size).filter(Boolean))
-              ) as string[];
-
-              const colours = Array.from(
-                new Set(product.variants.map(v => v.colour).filter(Boolean))
-              ) as string[];
-
               const inStock = product.variants.some(v => v.stock > 0);
 
               return (
                 <article className="productCard" key={product.id}>
-                  <div className="productImage">
+                  <button
+                    type="button"
+                    className="productImage"
+                    onClick={() => setSelectedProduct(product)}
+                    aria-label={`View ${product.name}`}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      padding: 0,
+                      border: 0,
+                      background: "transparent",
+                      cursor: "pointer",
+                      position: "relative",
+                      textAlign: "left"
+                    }}
+                  >
                     {product.imageUrl ? (
-                      <img src={product.imageUrl} alt={product.name}/>
+                      <img src={product.imageUrl} alt={product.name} />
                     ) : (
                       <div className="emptyProductImage">YUSEE PLUGS</div>
                     )}
 
-                    <button
-                      className={`heart ${saved.includes(product.id) ? "saved" : ""}`}
-                      aria-label="Save item"
-                      onClick={() => setSaved(old =>
-                        old.includes(product.id)
-                          ? old.filter(x => x !== product.id)
-                          : [...old, product.id]
-                      )}
-                    >
-                      <Heart
-                        size={18}
-                        fill={saved.includes(product.id) ? "currentColor" : "none"}
-                      />
-                    </button>
-
                     {!inStock && (
                       <span className="productTag">SOLD OUT</span>
                     )}
+                  </button>
+
+                  <div
+                    className="productInfo"
+                    style={{
+                      display: "block",
+                      paddingTop: "12px"
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setSelectedProduct(product)}
+                      style={{
+                        border: 0,
+                        padding: 0,
+                        background: "transparent",
+                        color: "inherit",
+                        textAlign: "left",
+                        cursor: "pointer",
+                        font: "inherit"
+                      }}
+                    >
+                      <h3 style={{ margin: 0 }}>{product.name}</h3>
+                    </button>
                   </div>
-
-                  <div className="productInfo">
-                    <div>
-                      <h3>{product.name}</h3>
-                      <p>{getCategory(product.category)}</p>
-                    </div>
-
-                    <strong>
-                      {variant
-                        ? `£${(variant.pricePence / 100).toFixed(2)}`
-                        : "Unavailable"}
-                    </strong>
-                  </div>
-
-                  {sizes.length > 0 && (
-                    <label className="variantField">
-                      SIZE
-                      <select
-                        value={variant?.size || ""}
-                        onChange={e => changeSize(product, e.target.value)}
-                      >
-                        {sizes.map(size => (
-                          <option key={size} value={size}>{size}</option>
-                        ))}
-                      </select>
-                    </label>
-                  )}
-
-                  {colours.length > 0 && (
-                    <label className="variantField">
-                      COLOUR
-                      <select
-                        value={variant?.colour || ""}
-                        onChange={e => changeColour(product, e.target.value)}
-                      >
-                        {colours.map(colour => (
-                          <option key={colour} value={colour}>{colour}</option>
-                        ))}
-                      </select>
-                    </label>
-                  )}
-
-                  <p className="stockText">
-                    {variant
-                      ? variant.stock > 0
-                        ? `${variant.stock} available`
-                        : "Out of stock"
-                      : "No variants available"}
-                  </p>
 
                   <button
-                    className="quickAdd"
-                    disabled={!variant || variant.stock < 1}
-                    onClick={() => variant && addToBag(variant)}
+                    className={`heart ${saved.includes(product.id) ? "saved" : ""}`}
+                    aria-label="Save item"
+                    onClick={() =>
+                      setSaved(old =>
+                        old.includes(product.id)
+                          ? old.filter(x => x !== product.id)
+                          : [...old, product.id]
+                      )
+                    }
                   >
-                    {variant && variant.stock > 0 ? "ADD TO BAG" : "SOLD OUT"}
-                    <Plus size={15}/>
+                    <Heart
+                      size={18}
+                      fill={saved.includes(product.id) ? "currentColor" : "none"}
+                    />
                   </button>
                 </article>
               );
@@ -544,9 +633,9 @@ export default function Home() {
 
       <section className="statement">
         <p className="eyebrow light">NOT HERE TO BLEND IN</p>
-        <h2>YOUR STYLE.<br/><i>YOUR RULES.</i></h2>
+        <h2>YOUR STYLE.<br /><i>YOUR RULES.</i></h2>
         <a href="#shop" className="outlineButton">
-          EXPLORE THE COLLECTION <ArrowUpRight size={16}/>
+          EXPLORE THE COLLECTION <ArrowUpRight size={16} />
         </a>
       </section>
 
@@ -556,7 +645,7 @@ export default function Home() {
             <Link className="wordmark footerLogo" href="/">
               YUSEE<span>PLUGS</span>
             </Link>
-            <p>Everyday essentials.<br/>Unmistakable energy.</p>
+            <p>Everyday essentials.<br />Unmistakable energy.</p>
           </div>
 
           <div className="footerLinks">
@@ -596,15 +685,302 @@ export default function Home() {
         </div>
       </footer>
 
+      {selectedProduct && (
+        <div
+          role="presentation"
+          onClick={() => setSelectedProduct(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            background: "rgba(0,0,0,0.72)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "18px",
+            overflowY: "auto"
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-label={selectedProduct.name}
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: "#f7f6f2",
+              color: "#171717",
+              width: "100%",
+              maxWidth: "900px",
+              maxHeight: "92vh",
+              overflowY: "auto",
+              position: "relative",
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))"
+            }}
+          >
+            <button
+              type="button"
+              aria-label="Close product"
+              onClick={() => setSelectedProduct(null)}
+              style={{
+                position: "absolute",
+                top: "12px",
+                right: "12px",
+                zIndex: 2,
+                border: 0,
+                background: "#fff",
+                width: "42px",
+                height: "42px",
+                borderRadius: "50%",
+                cursor: "pointer"
+              }}
+            >
+              <X size={21} />
+            </button>
+
+            <div style={{ background: "#e9e7e1", minHeight: "300px" }}>
+              {selectedProduct.imageUrl ? (
+                <img
+                  src={selectedProduct.imageUrl}
+                  alt={selectedProduct.name}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    minHeight: "300px",
+                    maxHeight: "650px",
+                    objectFit: "cover",
+                    display: "block"
+                  }}
+                />
+              ) : (
+                <div
+                  className="emptyProductImage"
+                  style={{
+                    minHeight: "350px",
+                    display: "grid",
+                    placeItems: "center"
+                  }}
+                >
+                  YUSEE PLUGS
+                </div>
+              )}
+            </div>
+
+            <div
+              style={{
+                padding: "clamp(24px, 5vw, 48px)",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
+                gap: "22px"
+              }}
+            >
+              <div>
+                <p className="eyebrow">YUSEE PLUGS / COLLECTION 001</p>
+                <h2 style={{
+                  fontSize: "clamp(28px, 5vw, 42px)",
+                  lineHeight: 1.05,
+                  margin: "12px 0"
+                }}>
+                  {selectedProduct.name}
+                </h2>
+
+                {modalVariant && (
+                  <strong style={{ fontSize: "20px" }}>
+                    £{(modalVariant.pricePence / 100).toFixed(2)}
+                  </strong>
+                )}
+              </div>
+
+              {selectedProduct.description && (
+                <p style={{
+                  lineHeight: 1.7,
+                  color: "#666",
+                  fontSize: "14px",
+                  whiteSpace: "pre-wrap"
+                }}>
+                  {selectedProduct.description}
+                </p>
+              )}
+
+              {modalSizes.length > 0 && (
+                <div>
+                  <label
+                    htmlFor="product-size"
+                    style={{
+                      display: "block",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      letterSpacing: "1.5px",
+                      marginBottom: "9px"
+                    }}
+                  >
+                    SIZE
+                  </label>
+
+                  <select
+                    id="product-size"
+                    value={modalVariant?.size || ""}
+                    onChange={e => changeSize(selectedProduct, e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "14px",
+                      background: "white",
+                      border: "1px solid #ccc",
+                      fontSize: "14px"
+                    }}
+                  >
+                    {modalSizes.map(size => {
+                      const hasStock = selectedProduct.variants.some(
+                        v => v.size === size && v.stock > 0
+                      );
+
+                      return (
+                        <option
+                          key={size}
+                          value={size}
+                          disabled={!hasStock}
+                        >
+                          {size}{!hasStock ? " — SOLD OUT" : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+              )}
+
+              {modalColours.length > 0 && (
+                <div>
+                  <label
+                    htmlFor="product-colour"
+                    style={{
+                      display: "block",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      letterSpacing: "1.5px",
+                      marginBottom: "9px"
+                    }}
+                  >
+                    COLOUR
+                  </label>
+
+                  <select
+                    id="product-colour"
+                    value={modalVariant?.colour || ""}
+                    onChange={e => changeColour(selectedProduct, e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "14px",
+                      background: "white",
+                      border: "1px solid #ccc",
+                      fontSize: "14px"
+                    }}
+                  >
+                    {modalColours.map(colour => {
+                      const hasStock = selectedProduct.variants.some(
+                        v => v.colour === colour && v.stock > 0
+                      );
+
+                      return (
+                        <option
+                          key={colour}
+                          value={colour}
+                          disabled={!hasStock}
+                        >
+                          {colour}{!hasStock ? " — SOLD OUT" : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+              )}
+
+              <p style={{
+                fontSize: "12px",
+                color: modalVariant && modalVariant.stock > 0
+                  ? "#397348"
+                  : "#b3261e"
+              }}>
+                {modalVariant
+                  ? modalVariant.stock > 0
+                    ? `${modalVariant.stock} available`
+                    : "This option is sold out"
+                  : "No variants available"}
+              </p>
+
+              <button
+                type="button"
+                disabled={!modalVariant || modalVariant.stock < 1}
+                onClick={() => modalVariant && addToBag(modalVariant)}
+                style={{
+                  width: "100%",
+                  padding: "17px",
+                  border: 0,
+                  background: "#171717",
+                  color: "#fff",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  letterSpacing: "1.5px",
+                  cursor: "pointer",
+                  opacity: !modalVariant || modalVariant.stock < 1 ? 0.45 : 1
+                }}
+              >
+                ADD TO BAG
+              </button>
+
+              <button
+                type="button"
+                disabled={
+                  checkoutLoading ||
+                  !modalVariant ||
+                  modalVariant.stock < 1
+                }
+                onClick={() => modalVariant && buyNow(modalVariant)}
+                style={{
+                  width: "100%",
+                  padding: "17px",
+                  border: "1px solid #171717",
+                  background: "transparent",
+                  color: "#171717",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  letterSpacing: "1.5px",
+                  cursor: "pointer",
+                  opacity: !modalVariant || modalVariant.stock < 1 ? 0.45 : 1
+                }}
+              >
+                {checkoutLoading ? "CONNECTING TO CHECKOUT..." : "BUY NOW"}
+              </button>
+
+              <p style={{
+                textAlign: "center",
+                fontSize: "11px",
+                color: "#777",
+                letterSpacing: "0.5px"
+              }}>
+                FREE UK DELIVERY OVER £100
+              </p>
+            </div>
+          </section>
+        </div>
+      )}
+
       {menuOpen && (
         <div className="overlay" onClick={() => setMenuOpen(false)}>
-          <aside className="drawer menuDrawer" onClick={e => e.stopPropagation()}>
+          <aside
+            className="drawer menuDrawer"
+            onClick={e => e.stopPropagation()}
+          >
             <div className="drawerHead">
               <Link className="wordmark" href="/">
                 YUSEE<span>PLUGS</span>
               </Link>
-              <button className="iconButton" aria-label="Close menu" onClick={() => setMenuOpen(false)}>
-                <X/>
+              <button
+                className="iconButton"
+                aria-label="Close menu"
+                onClick={() => setMenuOpen(false)}
+              >
+                <X />
               </button>
             </div>
 
@@ -612,29 +988,45 @@ export default function Home() {
               <p className="signIn">CHECKING ACCOUNT...</p>
             ) : adminSignedIn ? (
               <>
-                <Link className="signIn" href="/admin" onClick={() => setMenuOpen(false)}>
-                  ADMIN DASHBOARD <ArrowUpRight size={16}/>
+                <Link
+                  className="signIn"
+                  href="/admin"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  ADMIN DASHBOARD <ArrowUpRight size={16} />
                 </Link>
                 <button className="signIn" onClick={handleSignOut}>
-                  SIGN OUT <ArrowUpRight size={16}/>
+                  SIGN OUT <ArrowUpRight size={16} />
                 </button>
               </>
             ) : customerSignedIn ? (
               <>
-                <Link className="signIn" href="/account" onClick={() => setMenuOpen(false)}>
-                  MY ACCOUNT <ArrowUpRight size={16}/>
+                <Link
+                  className="signIn"
+                  href="/account"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  MY ACCOUNT <ArrowUpRight size={16} />
                 </Link>
                 <button className="signIn" onClick={handleSignOut}>
-                  SIGN OUT <ArrowUpRight size={16}/>
+                  SIGN OUT <ArrowUpRight size={16} />
                 </button>
               </>
             ) : (
               <>
-                <Link className="signIn" href="/login" onClick={() => setMenuOpen(false)}>
-                  SIGN IN <ArrowUpRight size={16}/>
+                <Link
+                  className="signIn"
+                  href="/login"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  SIGN IN <ArrowUpRight size={16} />
                 </Link>
-                <Link className="signIn" href="/register" onClick={() => setMenuOpen(false)}>
-                  CREATE ACCOUNT <ArrowUpRight size={16}/>
+                <Link
+                  className="signIn"
+                  href="/register"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  CREATE ACCOUNT <ArrowUpRight size={16} />
                 </Link>
               </>
             )}
@@ -644,10 +1036,14 @@ export default function Home() {
                 <div className="menuGroup" key={gender}>
                   <button
                     className="menuHeading"
-                    onClick={() => setExpanded(expanded === gender ? null : gender)}
+                    onClick={() =>
+                      setExpanded(expanded === gender ? null : gender)
+                    }
                   >
                     {gender.toUpperCase()}
-                    <ChevronDown className={expanded === gender ? "rotated" : ""}/>
+                    <ChevronDown
+                      className={expanded === gender ? "rotated" : ""}
+                    />
                   </button>
 
                   {expanded === gender && (
@@ -684,8 +1080,12 @@ export default function Home() {
               ))}
             </div>
 
-            <a className="menuSimple" href="#shop" onClick={() => setMenuOpen(false)}>
-              NEW ARRIVALS <ArrowUpRight size={16}/>
+            <a
+              className="menuSimple"
+              href="#shop"
+              onClick={() => setMenuOpen(false)}
+            >
+              NEW ARRIVALS <ArrowUpRight size={16} />
             </a>
 
             <p className="drawerNote">GOOD STYLE. NO COMPROMISE.</p>
@@ -695,20 +1095,30 @@ export default function Home() {
 
       {bagOpen && (
         <div className="overlay" onClick={() => setBagOpen(false)}>
-          <aside className="drawer bagDrawer" onClick={e => e.stopPropagation()}>
+          <aside
+            className="drawer bagDrawer"
+            onClick={e => e.stopPropagation()}
+          >
             <div className="drawerHead">
               <h2>YOUR BAG <span>({bagCount})</span></h2>
-              <button className="iconButton" aria-label="Close bag" onClick={() => setBagOpen(false)}>
-                <X/>
+              <button
+                className="iconButton"
+                aria-label="Close bag"
+                onClick={() => setBagOpen(false)}
+              >
+                <X />
               </button>
             </div>
 
             {bagItems.length === 0 ? (
               <div className="emptyBag">
-                <ShoppingBag size={35}/>
+                <ShoppingBag size={35} />
                 <h3>YOUR BAG IS EMPTY</h3>
                 <p>Find your next favourite.</p>
-                <button className="blackButton" onClick={() => setBagOpen(false)}>
+                <button
+                  className="blackButton"
+                  onClick={() => setBagOpen(false)}
+                >
                   CONTINUE SHOPPING
                 </button>
               </div>
@@ -718,7 +1128,10 @@ export default function Home() {
                   {bagItems.map(item => (
                     <div className="bagLine" key={item.variantId}>
                       {item.product.imageUrl ? (
-                        <img src={item.product.imageUrl} alt={item.product.name}/>
+                        <img
+                          src={item.product.imageUrl}
+                          alt={item.product.name}
+                        />
                       ) : (
                         <div className="emptyBagImage">YUSEE</div>
                       )}
@@ -739,9 +1152,11 @@ export default function Home() {
                         </span>
 
                         <button
-                          onClick={() => setBag(old =>
-                            old.filter(line => line.variantId !== item.variantId)
-                          )}
+                          onClick={() =>
+                            setBag(old =>
+                              old.filter(line => line.variantId !== item.variantId)
+                            )
+                          }
                         >
                           REMOVE
                         </button>
@@ -767,7 +1182,9 @@ export default function Home() {
                     disabled={checkoutLoading}
                     onClick={handleCheckout}
                   >
-                    {checkoutLoading ? "CONNECTING TO STRIPE..." : "CONTINUE TO CHECKOUT"}
+                    {checkoutLoading
+                      ? "CONNECTING TO STRIPE..."
+                      : "CONTINUE TO CHECKOUT"}
                   </button>
                 </div>
               </>
