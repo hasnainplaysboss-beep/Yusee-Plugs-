@@ -1315,16 +1315,18 @@ export default function Home() {
           margin-bottom: 5px;
         }
 
-        .footerColumns a,
-        .footerColumns button {
-          padding: 0;
-          color: #999;
-          background: transparent;
-          border: 0;
-          text-decoration: none;
-          font-size: 10px;
-          cursor: pointer;
-        }
+       .footerColumns a,
+.footerColumns button {
+  padding: 0;
+  color: #999;
+  background: transparent;
+  border: 0;
+  text-decoration: none;
+  font-size: 10px !important;
+  line-height: 1.4 !important;
+  font-weight: 400 !important;
+  cursor: pointer;
+}
 
         .footerBottom {
           padding-top: 17px;
