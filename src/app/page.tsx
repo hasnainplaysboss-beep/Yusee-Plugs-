@@ -11,9 +11,6 @@ import {
   ArrowUpRight,
   Heart,
   UserRound,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight
 } from "lucide-react";
 
 type Variant = {
@@ -58,7 +55,6 @@ export default function Home() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState("All");
-  const [expanded, setExpanded] = useState<"men" | "women" | null>(null);
 
   const [bag, setBag] = useState<BagLine[]>([]);
   const [bagReady, setBagReady] = useState(false);
@@ -68,7 +64,6 @@ export default function Home() {
 
   const [customerSignedIn, setCustomerSignedIn] = useState(false);
   const [adminSignedIn, setAdminSignedIn] = useState(false);
-  const [authChecked, setAuthChecked] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   useEffect(() => {
@@ -119,7 +114,7 @@ export default function Home() {
       try {
         const [customerResponse, adminResponse] = await Promise.all([
           fetch("/api/auth/me", { cache: "no-store" }),
-          fetch("/api/admin/me", { cache: "no-store" })
+          fetch("/api/admin/me", { cache: "no-store" }),
         ]);
 
         const customerData = customerResponse.ok
@@ -135,8 +130,6 @@ export default function Home() {
       } catch {
         setCustomerSignedIn(false);
         setAdminSignedIn(false);
-      } finally {
-        setAuthChecked(true);
       }
     }
 
@@ -155,7 +148,7 @@ export default function Home() {
     if (chosen) {
       setSelectedVariants(old => ({
         ...old,
-        [selectedProduct.id]: chosen.id
+        [selectedProduct.id]: chosen.id,
       }));
     }
   }, [selectedProduct]);
@@ -178,36 +171,7 @@ export default function Home() {
     });
   }, [products, active, query]);
 
-  // Featured products are real products from the database, never demo content.
   const featuredProducts = products.slice(0, 4);
-
-  const menCategories = Array.from(
-    new Set(
-      products
-        .filter(p => getGender(p.category) === "men")
-        .map(p => getCategory(p.category))
-        .filter(Boolean)
-    )
-  );
-
-  const womenCategories = Array.from(
-    new Set(
-      products
-        .filter(p => getGender(p.category) === "women")
-        .map(p => getCategory(p.category))
-        .filter(Boolean)
-    )
-  );
-
-  function getSelectedVariant(product: Product) {
-    const selectedId = selectedVariants[product.id];
-
-    return (
-      product.variants.find(v => v.id === selectedId) ||
-      product.variants.find(v => v.stock > 0) ||
-      product.variants[0]
-    );
-  }
 
   function selectGender(gender: "men" | "women") {
     setActive(gender === "men" ? "Men" : "Women");
@@ -218,6 +182,16 @@ export default function Home() {
     setTimeout(() => {
       document.getElementById("shop")?.scrollIntoView({ behavior: "smooth" });
     }, 50);
+  }
+
+  function getSelectedVariant(product: Product) {
+    const selectedId = selectedVariants[product.id];
+
+    return (
+      product.variants.find(v => v.id === selectedId) ||
+      product.variants.find(v => v.stock > 0) ||
+      product.variants[0]
+    );
   }
 
   function changeSize(product: Product, size: string) {
@@ -278,7 +252,7 @@ export default function Home() {
       const response = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items })
+        body: JSON.stringify({ items }),
       });
 
       const data = await response.json();
@@ -291,26 +265,6 @@ export default function Home() {
     } catch (error) {
       alert(error instanceof Error ? error.message : "Could not start checkout.");
       setCheckoutLoading(false);
-    }
-  }
-
-  async function handleSignOut() {
-    try {
-      const responses = await Promise.all([
-        fetch("/api/auth/logout", { method: "POST" }),
-        fetch("/api/admin/logout", { method: "POST" })
-      ]);
-
-      if (responses.some(response => !response.ok)) {
-        throw new Error("Sign out failed");
-      }
-
-      setCustomerSignedIn(false);
-      setAdminSignedIn(false);
-      setMenuOpen(false);
-      window.location.reload();
-    } catch {
-      alert("Could not sign out. Please try again.");
     }
   }
 
@@ -327,6 +281,7 @@ export default function Home() {
     .filter((item): item is NonNullable<typeof item> => item !== null);
 
   const bagCount = bag.reduce((sum, item) => sum + item.quantity, 0);
+
   const total = bagItems.reduce(
     (sum, item) => sum + item.variant.pricePence * item.quantity,
     0
@@ -337,11 +292,15 @@ export default function Home() {
     : undefined;
 
   const modalSizes = selectedProduct
-    ? Array.from(new Set(selectedProduct.variants.map(v => v.size).filter(Boolean))) as string[]
+    ? Array.from(
+        new Set(selectedProduct.variants.map(v => v.size).filter(Boolean))
+      ) as string[]
     : [];
 
   const modalColours = selectedProduct
-    ? Array.from(new Set(selectedProduct.variants.map(v => v.colour).filter(Boolean))) as string[]
+    ? Array.from(
+        new Set(selectedProduct.variants.map(v => v.colour).filter(Boolean))
+      ) as string[]
     : [];
 
   function productPrice(product: Product) {
@@ -446,10 +405,13 @@ export default function Home() {
             <p className="eyebrow">THE LATEST ROTATION</p>
             <h2>FEATURED PRODUCTS</h2>
           </div>
-          <button className="viewAll" onClick={() => {
-            setActive("All");
-            document.getElementById("shop")?.scrollIntoView({ behavior: "smooth" });
-          }}>
+          <button
+            className="viewAll"
+            onClick={() => {
+              setActive("All");
+              document.getElementById("shop")?.scrollIntoView({ behavior: "smooth" });
+            }}
+          >
             VIEW ALL <ArrowUpRight size={17} />
           </button>
         </div>
@@ -573,6 +535,7 @@ export default function Home() {
                     )}
                     {!inStock && <span className="soldOut">SOLD OUT</span>}
                   </button>
+
                   <button
                     className={`saveButton ${saved.includes(product.id) ? "isSaved" : ""}`}
                     aria-label="Save product"
@@ -589,6 +552,7 @@ export default function Home() {
                       fill={saved.includes(product.id) ? "currentColor" : "none"}
                     />
                   </button>
+
                   <button
                     className="shopInfo"
                     onClick={() => setSelectedProduct(product)}
@@ -614,10 +578,14 @@ export default function Home() {
             <b>SHOP</b>
             <button onClick={() => selectGender("men")}>MENS</button>
             <button onClick={() => selectGender("women")}>WOMENS</button>
-            <button onClick={() => {
-              setActive("All");
-              document.getElementById("shop")?.scrollIntoView({ behavior: "smooth" });
-            }}>ALL PRODUCTS</button>
+            <button
+              onClick={() => {
+                setActive("All");
+                document.getElementById("shop")?.scrollIntoView({ behavior: "smooth" });
+              }}
+            >
+              ALL PRODUCTS
+            </button>
           </div>
 
           <div>
@@ -744,9 +712,10 @@ export default function Home() {
               <button
                 className="modalSecondary"
                 disabled={checkoutLoading || !modalVariant || modalVariant.stock < 1}
-                onClick={() => modalVariant && startCheckout([
-                  { variantId: modalVariant.id, quantity: 1 }
-                ])}
+                onClick={() =>
+                  modalVariant &&
+                  startCheckout([{ variantId: modalVariant.id, quantity: 1 }])
+                }
               >
                 {checkoutLoading ? "CONNECTING..." : "BUY NOW"}
               </button>
@@ -762,69 +731,26 @@ export default function Home() {
           <aside className="drawer menuDrawer" onClick={e => e.stopPropagation()}>
             <div className="drawerHeader">
               <Link href="/" className="logo">YUSEE PLUGS</Link>
-              <button className="headerIcon" onClick={() => setMenuOpen(false)}>
+              <button
+                className="headerIcon"
+                aria-label="Close menu"
+                onClick={() => setMenuOpen(false)}
+              >
                 <X />
               </button>
             </div>
 
-            {!authChecked ? (
-              <p className="drawerAccount">CHECKING ACCOUNT...</p>
-            ) : adminSignedIn ? (
-              <>
-                <Link className="drawerAccount" href="/admin">ADMIN DASHBOARD</Link>
-                <button className="drawerAccount" onClick={handleSignOut}>SIGN OUT</button>
-              </>
-            ) : customerSignedIn ? (
-              <>
-                <Link className="drawerAccount" href="/account">MY ACCOUNT</Link>
-                <button className="drawerAccount" onClick={handleSignOut}>SIGN OUT</button>
-              </>
-            ) : (
-              <>
-                <Link className="drawerAccount" href="/login">SIGN IN</Link>
-                <Link className="drawerAccount" href="/register">CREATE ACCOUNT</Link>
-              </>
-            )}
-
             <div className="drawerGroup">
-              <button onClick={() => setExpanded(expanded === "men" ? null : "men")}>
-                MENS <ChevronDown className={expanded === "men" ? "rotated" : ""} />
+              <button onClick={() => selectGender("men")}>
+                MENS
               </button>
-              {expanded === "men" && (
-                <div className="drawerSubLinks">
-                  {menCategories.map(category => (
-                    <button key={category} onClick={() => {
-                      setActive(category);
-                      setMenuOpen(false);
-                    }}>{category}</button>
-                  ))}
-                  <button onClick={() => selectGender("men")}>VIEW ALL MENS</button>
-                </div>
-              )}
             </div>
 
             <div className="drawerGroup">
-              <button onClick={() => setExpanded(expanded === "women" ? null : "women")}>
-                WOMENS <ChevronDown className={expanded === "women" ? "rotated" : ""} />
+              <button onClick={() => selectGender("women")}>
+                WOMENS
               </button>
-              {expanded === "women" && (
-                <div className="drawerSubLinks">
-                  {womenCategories.map(category => (
-                    <button key={category} onClick={() => {
-                      setActive(category);
-                      setMenuOpen(false);
-                    }}>{category}</button>
-                  ))}
-                  <button onClick={() => selectGender("women")}>VIEW ALL WOMENS</button>
-                </div>
-              )}
             </div>
-
-            <button className="drawerAccount" onClick={() => {
-              setActive("All");
-              setMenuOpen(false);
-              document.getElementById("shop")?.scrollIntoView({ behavior: "smooth" });
-            }}>ALL PRODUCTS</button>
           </aside>
         </div>
       )}
@@ -834,7 +760,11 @@ export default function Home() {
           <aside className="drawer bagDrawer" onClick={e => e.stopPropagation()}>
             <div className="drawerHeader">
               <h2>YOUR BAG ({bagCount})</h2>
-              <button className="headerIcon" onClick={() => setBagOpen(false)}>
+              <button
+                className="headerIcon"
+                aria-label="Close bag"
+                onClick={() => setBagOpen(false)}
+              >
                 <X />
               </button>
             </div>
@@ -866,9 +796,15 @@ export default function Home() {
                         <span>
                           £{(item.variant.pricePence / 100).toFixed(2)} × {item.quantity}
                         </span>
-                        <button onClick={() => setBag(old =>
-                          old.filter(line => line.variantId !== item.variantId)
-                        )}>REMOVE</button>
+                        <button
+                          onClick={() =>
+                            setBag(old =>
+                              old.filter(line => line.variantId !== item.variantId)
+                            )
+                          }
+                        >
+                          REMOVE
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -887,12 +823,14 @@ export default function Home() {
                   <button
                     className="checkoutButton"
                     disabled={checkoutLoading}
-                    onClick={() => startCheckout(
-                      bagItems.map(item => ({
-                        variantId: item.variantId,
-                        quantity: item.quantity
-                      }))
-                    )}
+                    onClick={() =>
+                      startCheckout(
+                        bagItems.map(item => ({
+                          variantId: item.variantId,
+                          quantity: item.quantity,
+                        }))
+                      )
+                    }
                   >
                     {checkoutLoading ? "CONNECTING TO STRIPE..." : "CHECKOUT"}
                   </button>
@@ -1039,7 +977,7 @@ export default function Home() {
         .heroImage {
           position: absolute;
           inset: 0;
-          background-image: url("/hero-men.jpg");
+          background-image: url("/F126698D-BFBB-4540-9DFD-67723C1C9EC3.png");
           background-size: cover;
           background-position: center 38%;
           transform: scale(1.01);
@@ -1576,23 +1514,6 @@ export default function Home() {
           letter-spacing: 1px;
         }
 
-        .drawerAccount {
-          display: flex;
-          width: 100%;
-          justify-content: space-between;
-          padding: 17px 0;
-          color: #fff;
-          background: transparent;
-          border: 0;
-          border-bottom: 1px solid #292929;
-          text-decoration: none;
-          text-align: left;
-          font-size: 12px;
-          font-weight: 800;
-          letter-spacing: 1px;
-          cursor: pointer;
-        }
-
         .drawerGroup {
           border-bottom: 1px solid #292929;
         }
@@ -1609,30 +1530,6 @@ export default function Home() {
           font-size: 13px;
           font-weight: 900;
           letter-spacing: 1.5px;
-          cursor: pointer;
-        }
-
-        .drawerGroup svg {
-          transition: transform .2s ease;
-        }
-
-        .drawerGroup svg.rotated {
-          transform: rotate(180deg);
-        }
-
-        .drawerSubLinks {
-          display: flex;
-          flex-direction: column;
-          gap: 15px;
-          padding: 0 0 18px 12px;
-        }
-
-        .drawerSubLinks button {
-          border: 0;
-          background: transparent;
-          color: #aaa;
-          text-align: left;
-          font-size: 12px;
           cursor: pointer;
         }
 
