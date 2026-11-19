@@ -92,7 +92,9 @@ export async function POST(req: Request) {
       return { variantId, quantity };
     });
 
-    const variantIds = purchasedItems.map((item) => item.variantId);
+    const variantIds = purchasedItems.map(
+      (item) => item.variantId
+    );
 
     const variants = await prisma.productVariant.findMany({
       where: {
@@ -112,17 +114,18 @@ export async function POST(req: Request) {
       session.customer_details?.address;
 
     if (
-  !address ||
-  !address.line1 ||
-  !address.city ||
-  !address.postal_code
-) {
-  throw new Error("Customer delivery address is incomplete.");
-}
+      !address ||
+      !address.line1 ||
+      !address.city ||
+      !address.postal_code
+    ) {
+      throw new Error("Customer delivery address is incomplete.");
+    }
 
-const addressLine1 = address.line1;
-const city = address.city;
-const postcode = address.postal_code;
+    // Save required address fields as confirmed strings.
+    const addressLine1 = address.line1;
+    const city = address.city;
+    const postcode = address.postal_code;
 
     const customerName =
       session.shipping_details?.name ||
@@ -183,15 +186,17 @@ const postcode = address.postal_code;
 
       await tx.order.create({
         data: {
-          orderNumber: `YP-${randomUUID().slice(0, 8).toUpperCase()}`,
+          orderNumber: `YP-${randomUUID()
+            .slice(0, 8)
+            .toUpperCase()}`,
           customerName,
           customerEmail,
           customerPhone: session.customer_details?.phone || null,
-          addressLine1: address.line1,
+          addressLine1,
           addressLine2: address.line2 || null,
-          city: address.city,
+          city,
           county: address.state || null,
-          postcode: address.postal_code,
+          postcode,
           country: address.country || "GB",
           subtotalPence: session.amount_subtotal || 0,
           shippingPence: session.shipping_cost?.amount_total || 0,
