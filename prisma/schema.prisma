@@ -104,6 +104,7 @@ model OrderItem {
   productName    String
   size           String?
   colour         String?
+  delivery       String?
   quantity       Int
   unitPricePence Int
 }
