@@ -353,9 +353,19 @@ export default function Home() {
       </header>
 
       <nav className="genderNav">
-        <button onClick={() => selectGender("men")}>MENS</button>
-        <button onClick={() => selectGender("women")}>WOMENS</button>
-      </nav>
+  <button onClick={() => selectGender("men")}>MENS</button>
+  <button onClick={() => selectGender("women")}>WOMENS</button>
+  <button
+    onClick={() => {
+      setActive("Electronics");
+      setQuery("");
+      document.getElementById("shop")?.scrollIntoView({ behavior: "smooth" });
+    }}
+  >
+    ELECTRONICS
+  </button>
+</nav>
+
 
       {searchOpen && (
         <div className="searchPanel">
