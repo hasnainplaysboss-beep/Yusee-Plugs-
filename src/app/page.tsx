@@ -614,26 +614,26 @@ export default function Home()  {
             </button>
           </div>
 
-          <div>
-            <b>ACCOUNT</b>
-            {adminSignedIn ? (
-              <Link href="/admin">ADMIN DASHBOARD</Link>
-            ) : customerSignedIn ? (
-              <Link href="/account">MY ACCOUNT</Link>
-            ) : (
-              <>
-                <Link href="/login">SIGN IN</Link>
-                <Link href="/register">CREATE ACCOUNT</Link>
-              </>
-            )}
-          </div>
+         <div className="footerColumn">
+  <b>ACCOUNT</b>
+  {adminSignedIn ? (
+    <Link href="/admin">ADMIN DASHBOARD</Link>
+  ) : customerSignedIn ? (
+    <Link href="/account">MY ACCOUNT</Link>
+  ) : (
+    <>
+      <Link href="/login">SIGN IN</Link>
+      <Link href="/register">CREATE ACCOUNT</Link>
+    </>
+  )}
+</div>
 
-          <div>
-            <b>HELP</b>
-            <a href="mailto:hello@yuseeplugs.com">CONTACT US</a>
-            <Link href="/delivery">DELIVERY</Link>
-            <Link href="/returns">RETURNS</Link>
-          </div>
+<div className="footerColumn">
+  <b>HELP</b>
+  <a href="mailto:hello@yuseeplugs.com">CONTACT US</a>
+  <Link href="/delivery">DELIVERY</Link>
+  <Link href="/returns">RETURNS</Link>
+</div>
         </div>
 
         <div className="footerBottom">
