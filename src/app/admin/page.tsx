@@ -13,6 +13,7 @@ const cash = (p: number) =>
 type Variant = {
   size: string;
   colour: string;
+  delivery: string;
   price: string;
   stock: string;
 };
@@ -20,6 +21,7 @@ type Variant = {
 const emptyVariant = (): Variant => ({
   size: "",
   colour: "",
+  delivery: "UK",
   price: "35",
   stock: "10"
 });
@@ -167,6 +169,7 @@ export default function Admin() {
         ? product.variants.map((v: any) => ({
             size: v.size || "",
             colour: v.colour || "",
+            delivery: v.delivery || "UK",
             price: (v.pricePence / 100).toFixed(2),
             stock: String(v.stock ?? 0)
           }))
@@ -191,7 +194,7 @@ export default function Admin() {
 
     if (
       variants.some(
-        v => !v.size.trim() || !v.colour.trim() || !v.price || !v.stock
+        v => !v.size.trim() || !v.colour.trim() || !v.price || !v.stock || !v.delivery
       )
     ) {
       alert("Please complete every field for each variant.");
@@ -248,6 +251,7 @@ export default function Admin() {
         variants: variants.map(v => ({
           size: v.size,
           colour: v.colour,
+          delivery: v.delivery,
           price: v.price,
           stock: v.stock
         }))
@@ -484,8 +488,8 @@ export default function Admin() {
                 <h3>Product variants</h3>
 
                 <p className="note">
-                  Add each size and colour combination separately. Set the price
-                  and stock for each combination.
+                  Add each size, colour and delivery combination separately.
+                  Set the price and stock for each combination.
                 </p>
 
                 {variants.map((variant, index) => (
@@ -519,6 +523,18 @@ export default function Admin() {
                       }
                       required
                     />
+
+                    <label>Delivery</label>
+                    <select
+                      value={variant.delivery}
+                      onChange={e =>
+                        updateVariant(index, "delivery", e.target.value)
+                      }
+                      required
+                    >
+                      <option value="UK">UK</option>
+                      <option value="China">China</option>
+                    </select>
 
                     <label>Price (£)</label>
                     <input
@@ -649,7 +665,7 @@ export default function Admin() {
 
                 <p>
                   {o.items.map((i: any) =>
-                    `${i.productName} ${i.size || ""} ${i.colour || ""} ×${i.quantity}`
+                    `${i.productName} ${i.size || ""} ${i.colour || ""} ${i.delivery || ""} ×${i.quantity}`
                   ).join(", ")}
                 </p>
 
