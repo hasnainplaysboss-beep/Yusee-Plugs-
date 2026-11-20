@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -46,7 +45,7 @@ function getCategory(category: string | null) {
   return parts.length > 1 ? parts.slice(1).join("/").trim() : "";
 }
 
-export default function Home()  {
+export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [productsError, setProductsError] = useState("");
@@ -591,54 +590,80 @@ export default function Home()  {
         )}
       </section>
 
+      {/* NEW FOOTER */}
       <footer className="footer">
-        <div className="footerBrand">
-          <Link href="/" className="logo">YUSEE PLUGS</Link>
-          <p>PREMIUM STREETWEAR.<br />YOUR STYLE. YOUR RULES.</p>
+        <div className="footerTop">
+          <div className="footerBrand">
+            <Link href="/" className="footerLogo">YUSEE PLUGS</Link>
+            <p>YOUR STYLE. YOUR RULES.</p>
+          </div>
         </div>
 
-        <div className="footerColumns">
-          <div>
-            <b>SHOP</b>
-            <button onClick={() => selectGender("men")}>MENS</button>
-            <button onClick={() => selectGender("women")}>WOMENS</button>
-            <button onClick={selectElectronics}>ELECTRONICS</button>
-            <button
-              onClick={() => {
-                setActive("All");
-                setQuery("");
-                document.getElementById("shop")?.scrollIntoView({ behavior: "smooth" });
-              }}
-            >
-              ALL PRODUCTS
-            </button>
-          </div>
+        <div className="footerAccordion">
+          <details>
+            <summary>
+              <span>CUSTOMER SERVICE</span>
+              <span className="footerPlus">+</span>
+            </summary>
+            <div className="footerAccordionContent">
+              <Link href="/delivery">DELIVERY INFORMATION</Link>
+              <Link href="/returns">RETURNS & REFUNDS</Link>
+              <a href="mailto:hello@yuseeplugs.com">CONTACT US</a>
+              <Link href="/faq">FAQ</Link>
+            </div>
+          </details>
 
-         <div className="footerColumn">
-  <b>ACCOUNT</b>
-  {adminSignedIn ? (
-    <Link href="/admin">ADMIN DASHBOARD</Link>
-  ) : customerSignedIn ? (
-    <Link href="/account">MY ACCOUNT</Link>
-  ) : (
-    <>
-      <Link href="/login">SIGN IN</Link>
-      <Link href="/register">CREATE ACCOUNT</Link>
-    </>
-  )}
-</div>
+          <details>
+            <summary>
+              <span>ELEVATE YOUR EVERYDAY</span>
+              <span className="footerPlus">+</span>
+            </summary>
+            <div className="footerAccordionContent newsletterContent">
+              <p>
+                JOIN THE YUSEE PLUGS COMMUNITY FOR NEW DROPS,
+                EXCLUSIVE UPDATES AND MORE.
+              </p>
+              <form
+                className="newsletterForm"
+                onSubmit={e => {
+                  e.preventDefault();
+                  alert("Newsletter signup is not yet connected.");
+                }}
+              >
+                <input
+                  type="email"
+                  placeholder="ENTER YOUR EMAIL ADDRESS"
+                  aria-label="Email address"
+                  required
+                />
+                <button type="submit">SIGN UP <ArrowUpRight size={18} /></button>
+              </form>
+              <p className="newsletterDisclaimer">
+                BY SIGNING UP, YOU AGREE TO RECEIVE EMAIL UPDATES FROM YUSEE PLUGS.
+              </p>
+            </div>
+          </details>
+        </div>
 
-<div className="footerColumn">
-  <b>HELP</b>
-  <a href="mailto:hello@yuseeplugs.com">CONTACT US</a>
-  <Link href="/delivery">DELIVERY</Link>
-  <Link href="/returns">RETURNS</Link>
-</div>
+        <div className="footerPayments">
+          <span className="paymentLogo visa">VISA</span>
+          <span className="paymentLogo mastercard">mastercard</span>
+          <span className="paymentLogo amex">AMEX</span>
+          <span className="paymentLogo paypal">PayPal</span>
+          <span className="paymentLogo applepay">Apple Pay</span>
+          <span className="paymentLogo klarna">Klarna.</span>
+        </div>
+
+        <div className="footerCountry">
+          <label htmlFor="footerCountrySelect">COUNTRY / REGION</label>
+          <select id="footerCountrySelect" defaultValue="uk">
+            <option value="uk">United Kingdom (GBP £)</option>
+          </select>
         </div>
 
         <div className="footerBottom">
-          <span>© 2026 YUSEE PLUGS. ALL RIGHTS RESERVED.</span>
-          <span>BUILT FOR YOUR EVERYDAY.</span>
+          <p>© 2026 YUSEE PLUGS. ALL RIGHTS RESERVED.</p>
+          <p>BUILT FOR YOUR EVERYDAY.</p>
         </div>
       </footer>
 
@@ -941,7 +966,6 @@ export default function Home()  {
           place-items: center;
         }
 
-        /* Larger navigation with two rows */
         .genderNav {
           display: flex;
           flex-direction: column;
@@ -1336,95 +1360,234 @@ export default function Home()  {
           letter-spacing: 1px;
         }
 
+        /* FOOTER */
+
         .footer {
-          padding: 55px 3.5% 20px;
-          background: #050505;
-          border-top: 1px solid #282828;
+          background: #252525;
+          color: #fff;
+          padding: 45px 5% 22px;
+          border-top: 1px solid #333;
         }
 
         .footer,
         .footer * {
           font-family: Arial, Helvetica, sans-serif;
+          box-sizing: border-box;
         }
 
-        .footer .logo,
-        .footerBrand p,
-        .footerColumns b,
-        .footerColumns a,
-        .footerColumns button,
-        .footerBottom {
-          font-size: 10px !important;
-          line-height: 1.5 !important;
+        .footerTop {
+          padding-bottom: 35px;
         }
 
-        .footer .logo {
+        .footerLogo {
           display: inline-block;
+          font-size: 30px;
+          font-weight: 950;
+          letter-spacing: -1.5px;
           color: #fff;
-          font-weight: 900;
-          letter-spacing: 1px;
           text-decoration: none;
         }
 
         .footerBrand p {
-          color: #999;
-          letter-spacing: 1.5px;
-          margin: 13px 0 35px;
+          font-size: 12px;
+          letter-spacing: 2px;
+          color: #aaa;
+          margin: 12px 0 0;
         }
 
-        .footerColumns {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 25px;
-  padding: 25px 0 30px;
-  border-top: 1px solid #292929;
-}
+        .footerAccordion {
+          border-top: 1px solid #484848;
+        }
 
-.footerColumns div {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  min-width: 0;
-}
+        .footerAccordion details {
+          border-bottom: 1px solid #484848;
+        }
 
-.footerColumns b {
-  color: #fff;
-  font-size: 10px !important;
-  font-weight: 800 !important;
-  letter-spacing: 1.5px;
-  margin-bottom: 5px;
-}
+        .footerAccordion summary {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 15px;
+          padding: 25px 0;
+          list-style: none;
+          cursor: pointer;
+          font-size: 19px;
+          font-weight: 900;
+          letter-spacing: .5px;
+        }
 
-.footerColumns a,
-.footerColumns button {
-  padding: 0 !important;
-  color: #999 !important;
-  background: transparent !important;
-  border: 0 !important;
-  text-decoration: none !important;
-  font-size: 10px !important;
-  line-height: 1.5 !important;
-  font-weight: 400 !important;
-  letter-spacing: 0.5px !important;
-  cursor: pointer;
-  text-align: left;
-}
+        .footerAccordion summary::-webkit-details-marker {
+          display: none;
+        }
 
-.footerColumns a:hover,
-.footerColumns button:hover {
-  color: #fff !important;
-}
+        .footerPlus {
+          font-size: 25px;
+          font-weight: 300;
+          transition: transform .2s ease;
+        }
 
-.footerBottom {
-  padding-top: 17px;
-  border-top: 1px solid #292929;
-  display: flex;
-  justify-content: space-between;
-  gap: 15px;
-  color: #777;
-  letter-spacing: .8px;
-  font-size: 10px !important;
-}
+        .footerAccordion details[open] .footerPlus {
+          transform: rotate(45deg);
+        }
+
+        .footerAccordionContent {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 19px;
+          padding: 0 0 28px;
+        }
+
+        .footerAccordionContent a {
+          color: #ccc;
+          text-decoration: none;
+          font-size: 14px;
+          letter-spacing: .5px;
+          transition: color .2s ease;
+        }
+
+        .footerAccordionContent a:hover {
+          color: #fff;
+        }
+
+        .newsletterContent > p {
+          color: #bcbcbc;
+          font-size: 12px;
+          line-height: 1.8;
+          letter-spacing: 1px;
+          max-width: 450px;
+          margin: 0;
+        }
+
+        .newsletterForm {
+          display: flex;
+          width: 100%;
+          max-width: 500px;
+          border-bottom: 1px solid #fff;
+          align-items: center;
+        }
+
+        .newsletterForm input {
+          flex: 1;
+          min-width: 0;
+          background: transparent;
+          border: 0;
+          outline: none;
+          color: #fff;
+          padding: 17px 5px;
+          font-size: 12px;
+          letter-spacing: 1px;
+        }
+
+        .newsletterForm input::placeholder {
+          color: #999;
+        }
+
+        .newsletterForm button {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 14px 5px 14px 15px;
+          border: 0;
+          background: transparent;
+          color: #fff;
+          cursor: pointer;
+          font-size: 12px;
+          font-weight: 900;
+          letter-spacing: 1px;
+          white-space: nowrap;
+        }
+
+        .newsletterDisclaimer {
+          font-size: 10px !important;
+          color: #888 !important;
+          line-height: 1.7;
+          letter-spacing: .6px;
+        }
+
+        .footerPayments {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 10px;
+          padding: 30px 0;
+          border-bottom: 1px solid #484848;
+        }
+
+        .paymentLogo {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 49px;
+          height: 31px;
+          padding: 5px 9px;
+          background: #f5f5f5;
+          color: #111;
+          border-radius: 4px;
+          font-size: 12px;
+          font-weight: 900;
+          letter-spacing: .2px;
+        }
+
+        .mastercard {
+          font-size: 10px;
+          font-weight: 800;
+        }
+
+        .paypal {
+          font-style: italic;
+        }
+
+        .applepay {
+          font-size: 10px;
+        }
+
+        .klarna {
+          font-size: 11px;
+          font-weight: 950;
+        }
+
+        .footerCountry {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          padding: 30px 0;
+          border-bottom: 1px solid #484848;
+        }
+
+        .footerCountry label {
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 1.5px;
+        }
+
+        .footerCountry select {
+          width: fit-content;
+          min-width: 220px;
+          padding: 14px 40px 14px 15px;
+          background: #fff;
+          color: #111;
+          border: 1px solid #fff;
+          border-radius: 0;
+          font-size: 13px;
+        }
+
+        .footerBottom {
+          display: flex;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 15px;
+          padding-top: 22px;
+          color: #999;
+          font-size: 10px;
+          letter-spacing: 1px;
+          line-height: 1.7;
+        }
+
+        .footerBottom p {
+          margin: 0;
+        }
+
         .modalBackdrop,
         .drawerBackdrop {
           position: fixed;
@@ -1860,25 +2023,42 @@ export default function Home()  {
           }
 
           .footer {
-            padding: 38px 18px 18px;
+            padding: 35px 18px 18px;
           }
 
-          .footerColumns {
-            gap: 12px;
+          .footerLogo {
+            font-size: 25px;
+          }
+
+          .footerAccordion summary {
+            font-size: 16px;
+            padding: 23px 0;
+          }
+
+          .footerAccordionContent a {
+            font-size: 13px;
+          }
+
+          .footerPayments {
+            gap: 8px;
+            padding: 25px 0;
+          }
+
+          .paymentLogo {
+            height: 29px;
+            min-width: 43px;
+            font-size: 10px;
+            padding: 4px 7px;
+          }
+
+          .footerCountry select {
+            width: 100%;
+            max-width: 300px;
           }
 
           .footerBottom {
             flex-direction: column;
-          }
-
-          .footer .logo,
-          .footerBrand p,
-          .footerColumns b,
-          .footerColumns a,
-          .footerColumns button,
-          .footerBottom {
-            font-size: 10px !important;
-            line-height: 1.5 !important;
+            gap: 8px;
           }
         }
 
