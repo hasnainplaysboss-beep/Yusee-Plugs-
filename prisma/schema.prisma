@@ -62,6 +62,7 @@ model ProductVariant {
   sku       String?     @unique
   size      String?
   colour    String?
+  delivery  String?
   pricePence Int
   stock     Int         @default(0)
   orderItems OrderItem[]
