@@ -46,7 +46,7 @@ function getCategory(category: string | null) {
   return parts.length > 1 ? parts.slice(1).join("/").trim() : "";
 }
 
-export default function Home() {
+export default function Home()  {
   const [products, setProducts] = useState<Product[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [productsError, setProductsError] = useState("");
@@ -172,11 +172,21 @@ export default function Home() {
     });
   }, [products, active, query]);
 
-  // Only products selected as Featured in the admin dashboard appear here.
   const featuredProducts = products.filter(product => product.featured === true);
 
   function selectGender(gender: "men" | "women") {
     setActive(gender === "men" ? "Men" : "Women");
+    setQuery("");
+    setMenuOpen(false);
+    setSearchOpen(false);
+
+    setTimeout(() => {
+      document.getElementById("shop")?.scrollIntoView({ behavior: "smooth" });
+    }, 50);
+  }
+
+  function selectElectronics() {
+    setActive("Electronics");
     setQuery("");
     setMenuOpen(false);
     setSearchOpen(false);
@@ -353,19 +363,15 @@ export default function Home() {
       </header>
 
       <nav className="genderNav">
-  <button onClick={() => selectGender("men")}>MENS</button>
-  <button onClick={() => selectGender("women")}>WOMENS</button>
-  <button
-    onClick={() => {
-      setActive("Electronics");
-      setQuery("");
-      document.getElementById("shop")?.scrollIntoView({ behavior: "smooth" });
-    }}
-  >
-    ELECTRONICS
-  </button>
-</nav>
+        <div className="genderRow">
+          <button onClick={() => selectGender("men")}>MENS</button>
+          <button onClick={() => selectGender("women")}>WOMENS</button>
+        </div>
 
+        <button className="electronicsNav" onClick={selectElectronics}>
+          ELECTRONICS
+        </button>
+      </nav>
 
       {searchOpen && (
         <div className="searchPanel">
@@ -518,15 +524,14 @@ export default function Home() {
           >
             WOMENS
           </button>
+          <button
+            className={active === "Electronics" ? "selectedFilter" : ""}
+            onClick={() => setActive("Electronics")}
+          >
+            ELECTRONICS
+          </button>
           {query && <span>SEARCH: {query}</span>}
         </div>
-        <button
-  className={active === "Electronics" ? "selectedFilter" : ""}
-  onClick={() => setActive("Electronics")}
->
-  ELECTRONICS
-</button>
-
 
         {productsLoading ? (
           <p className="statusMessage">LOADING PRODUCTS...</p>
@@ -597,9 +602,11 @@ export default function Home() {
             <b>SHOP</b>
             <button onClick={() => selectGender("men")}>MENS</button>
             <button onClick={() => selectGender("women")}>WOMENS</button>
+            <button onClick={selectElectronics}>ELECTRONICS</button>
             <button
               onClick={() => {
                 setActive("All");
+                setQuery("");
                 document.getElementById("shop")?.scrollIntoView({ behavior: "smooth" });
               }}
             >
@@ -766,18 +773,10 @@ export default function Home() {
             <div className="drawerGroup">
               <button onClick={() => selectGender("women")}>WOMENS</button>
             </div>
+
             <div className="drawerGroup">
-  <button
-    onClick={() => {
-      setActive("Electronics");
-      setQuery("");
-      setMenuOpen(false);
-      document.getElementById("shop")?.scrollIntoView({ behavior: "smooth" });
-    }}
-  >
-    ELECTRONICS
-  </button>
-</div>
+              <button onClick={selectElectronics}>ELECTRONICS</button>
+            </div>
           </aside>
         </div>
       )}
@@ -942,26 +941,54 @@ export default function Home() {
           place-items: center;
         }
 
+        /* Larger navigation with two rows */
         .genderNav {
-          height: 43px;
-          display: grid;
-          grid-template-columns: 1fr 1fr;
+          display: flex;
+          flex-direction: column;
+          gap: 0;
+          padding: 12px 18px;
           background: #080808;
           border-bottom: 1px solid #333;
         }
 
-        .genderNav button {
+        .genderRow {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          width: 100%;
+        }
+
+        .genderRow button {
+          min-height: 52px;
           background: transparent;
           border: 0;
           color: #fff;
-          font-size: 14px;
-          font-weight: 800;
+          font-size: 16px;
+          font-weight: 900;
           cursor: pointer;
-          letter-spacing: .5px;
+          letter-spacing: 1px;
         }
 
-        .genderNav button + button {
+        .genderRow button + button {
           border-left: 1px solid #333;
+        }
+
+        .electronicsNav {
+          display: block;
+          width: 100%;
+          min-height: 52px;
+          padding: 15px;
+          background: #fff;
+          color: #080808;
+          border: 0;
+          font-size: 15px;
+          font-weight: 950;
+          letter-spacing: 1.5px;
+          cursor: pointer;
+          transition: background .2s ease, color .2s ease;
+        }
+
+        .electronicsNav:hover {
+          background: #d9d9d9;
         }
 
         .searchPanel {
@@ -1270,6 +1297,7 @@ export default function Home() {
           display: flex;
           gap: 22px;
           align-items: center;
+          flex-wrap: wrap;
           margin: 0 0 25px;
           padding-bottom: 13px;
           border-bottom: 1px solid #333;
@@ -1314,7 +1342,6 @@ export default function Home() {
           border-top: 1px solid #282828;
         }
 
-        /* Consistent footer text sizing on every screen size. */
         .footer,
         .footer * {
           font-family: Arial, Helvetica, sans-serif;
@@ -1712,7 +1739,17 @@ export default function Home() {
           }
 
           .genderNav {
-            height: 42px;
+            padding: 10px 12px;
+          }
+
+          .genderRow button {
+            min-height: 48px;
+            font-size: 15px;
+          }
+
+          .electronicsNav {
+            min-height: 48px;
+            font-size: 14px;
           }
 
           .hero {
@@ -1829,7 +1866,10 @@ export default function Home() {
             gap: 12px;
           }
 
-          /* Keep footer text the same size on mobile too. */
+          .footerBottom {
+            flex-direction: column;
+          }
+
           .footer .logo,
           .footerBrand p,
           .footerColumns b,
@@ -1838,10 +1878,6 @@ export default function Home() {
           .footerBottom {
             font-size: 10px !important;
             line-height: 1.5 !important;
-          }
-
-          .footerBottom {
-            flex-direction: column;
           }
         }
 
