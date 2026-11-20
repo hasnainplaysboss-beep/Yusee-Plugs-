@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -37,6 +38,20 @@ type BagLine = {
   quantity: number;
 };
 
+function normaliseDelivery(delivery: string | null | undefined) {
+  const value = (delivery || "UK").trim().toLowerCase();
+
+  if (value === "uk" || value === "gb" || value.includes("united kingdom")) {
+    return "uk";
+  }
+
+  if (value === "cn" || value === "china") {
+    return "china";
+  }
+
+  return value;
+}
+
 function getGender(category: string | null) {
   return category?.split("/")[0]?.trim().toLowerCase() || "";
 }
@@ -73,9 +88,7 @@ export default function Home() {
         const response = await fetch("/api/products", { cache: "no-store" });
         const data = await response.json();
 
-        if (!response.ok) {
-          throw new Error(data.error || "Could not load products.");
-        }
+        if (!response.ok) throw new Error(data.error || "Could not load products.");
 
         setProducts(Array.isArray(data.products) ? data.products : []);
       } catch (error) {
@@ -105,9 +118,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (bagReady) {
-      localStorage.setItem("yusee_bag", JSON.stringify(bag));
-    }
+    if (bagReady) localStorage.setItem("yusee_bag", JSON.stringify(bag));
   }, [bag, bagReady]);
 
   useEffect(() => {
@@ -220,9 +231,7 @@ export default function Home() {
       product.variants.find(v => v.size === size && v.stock > 0) ||
       product.variants.find(v => v.size === size);
 
-    if (match) {
-      setSelectedVariants(old => ({ ...old, [product.id]: match.id }));
-    }
+    if (match) setSelectedVariants(old => ({ ...old, [product.id]: match.id }));
   }
 
   function changeColour(product: Product, colour: string) {
@@ -239,9 +248,7 @@ export default function Home() {
       product.variants.find(v => v.colour === colour && v.stock > 0) ||
       product.variants.find(v => v.colour === colour);
 
-    if (match) {
-      setSelectedVariants(old => ({ ...old, [product.id]: match.id }));
-    }
+    if (match) setSelectedVariants(old => ({ ...old, [product.id]: match.id }));
   }
 
   function changeDelivery(product: Product, delivery: string) {
@@ -258,12 +265,31 @@ export default function Home() {
       product.variants.find(v => v.delivery === delivery && v.stock > 0) ||
       product.variants.find(v => v.delivery === delivery);
 
-    if (match) {
-      setSelectedVariants(old => ({ ...old, [product.id]: match.id }));
-    }
+    if (match) setSelectedVariants(old => ({ ...old, [product.id]: match.id }));
   }
 
   function addToBag(variant: Variant) {
+    const selectedDelivery = normaliseDelivery(variant.delivery);
+
+    const existingDeliveries = bag
+      .map(line => {
+        const existingVariant = products
+          .flatMap(product => product.variants)
+          .find(v => v.id === line.variantId);
+
+        return existingVariant
+          ? normaliseDelivery(existingVariant.delivery)
+          : null;
+      })
+      .filter(Boolean);
+
+    if (existingDeliveries.some(delivery => delivery !== selectedDelivery)) {
+      alert(
+        "Your bag already contains a different delivery type. Please checkout or remove those items before adding this product."
+      );
+      return;
+    }
+
     setBag(old => {
       const existing = old.find(item => item.variantId === variant.id);
 
@@ -284,6 +310,22 @@ export default function Home() {
 
   async function startCheckout(items: BagLine[]) {
     if (!items.length) return;
+
+    const deliveries = new Set(
+      items.map(item => {
+        const variant = products.flatMap(p => p.variants).find(
+          v => v.id === item.variantId
+        );
+        return normaliseDelivery(variant?.delivery);
+      })
+    );
+
+    if (deliveries.size > 1) {
+      alert(
+        "Your bag contains mixed delivery types. Please remove items until your bag contains only UK or China delivery."
+      );
+      return;
+    }
 
     setCheckoutLoading(true);
 
@@ -331,21 +373,15 @@ export default function Home() {
     : undefined;
 
   const modalSizes = selectedProduct
-    ? Array.from(
-        new Set(selectedProduct.variants.map(v => v.size).filter(Boolean))
-      ) as string[]
+    ? Array.from(new Set(selectedProduct.variants.map(v => v.size).filter(Boolean))) as string[]
     : [];
 
   const modalColours = selectedProduct
-    ? Array.from(
-        new Set(selectedProduct.variants.map(v => v.colour).filter(Boolean))
-      ) as string[]
+    ? Array.from(new Set(selectedProduct.variants.map(v => v.colour).filter(Boolean))) as string[]
     : [];
 
   const modalDeliveries = selectedProduct
-    ? Array.from(
-        new Set(selectedProduct.variants.map(v => v.delivery).filter(Boolean))
-      ) as string[]
+    ? Array.from(new Set(selectedProduct.variants.map(v => v.delivery).filter(Boolean))) as string[]
     : [];
 
   function productPrice(product: Product) {
@@ -357,38 +393,22 @@ export default function Home() {
   return (
     <main className="site">
       <header className="header">
-        <button
-          className="headerIcon menuIcon"
-          aria-label="Open menu"
-          onClick={() => setMenuOpen(true)}
-        >
+        <button className="headerIcon menuIcon" aria-label="Open menu" onClick={() => setMenuOpen(true)}>
           <Menu size={27} strokeWidth={1.7} />
         </button>
 
         <Link href="/" className="logo">YUSEE PLUGS</Link>
 
         <div className="headerRight">
-          <button
-            className="headerIcon"
-            aria-label="Search"
-            onClick={() => setSearchOpen(old => !old)}
-          >
+          <button className="headerIcon" aria-label="Search" onClick={() => setSearchOpen(old => !old)}>
             <Search size={23} strokeWidth={1.7} />
           </button>
 
-          <Link
-            className="headerIcon"
-            aria-label="My account"
-            href={adminSignedIn ? "/admin" : customerSignedIn ? "/account" : "/login"}
-          >
+          <Link className="headerIcon" aria-label="My account" href={adminSignedIn ? "/admin" : customerSignedIn ? "/account" : "/login"}>
             <UserRound size={23} strokeWidth={1.7} />
           </Link>
 
-          <button
-            className="headerIcon bagIcon"
-            aria-label="Open shopping bag"
-            onClick={() => setBagOpen(true)}
-          >
+          <button className="headerIcon bagIcon" aria-label="Open shopping bag" onClick={() => setBagOpen(true)}>
             <ShoppingBag size={23} strokeWidth={1.7} />
             <span className="bagCount">{bagCount}</span>
           </button>
@@ -400,31 +420,14 @@ export default function Home() {
           <button onClick={() => selectGender("men")}>MENS</button>
           <button onClick={() => selectGender("women")}>WOMENS</button>
         </div>
-
-        <button className="electronicsNav" onClick={selectElectronics}>
-          ELECTRONICS
-        </button>
+        <button className="electronicsNav" onClick={selectElectronics}>ELECTRONICS</button>
       </nav>
 
       {searchOpen && (
         <div className="searchPanel">
           <Search size={19} />
-          <input
-            autoFocus
-            placeholder="Search products..."
-            value={query}
-            onChange={e => {
-              setQuery(e.target.value);
-              setActive("All");
-            }}
-          />
-          <button
-            aria-label="Close search"
-            onClick={() => {
-              setSearchOpen(false);
-              setQuery("");
-            }}
-          >
+          <input autoFocus placeholder="Search products..." value={query} onChange={e => { setQuery(e.target.value); setActive("All"); }} />
+          <button aria-label="Close search" onClick={() => { setSearchOpen(false); setQuery(""); }}>
             <X size={20} />
           </button>
         </div>
@@ -433,7 +436,6 @@ export default function Home() {
       <section className="hero">
         <div className="heroImage" />
         <div className="heroOverlay" />
-
         <div className="heroContent">
           <p className="heroEyebrow">YUSEE PLUGS</p>
           <h1>SHOP<br />MEN</h1>
@@ -442,7 +444,6 @@ export default function Home() {
             SHOP MEN <ArrowUpRight size={20} />
           </button>
         </div>
-
         <div className="heroBottom">
           <span>01 / 01</span>
           <span className="heroProgress"><i /></span>
@@ -456,13 +457,7 @@ export default function Home() {
             <p className="eyebrow">THE LATEST ROTATION</p>
             <h2>FEATURED PRODUCTS</h2>
           </div>
-          <button
-            className="viewAll"
-            onClick={() => {
-              setActive("All");
-              document.getElementById("shop")?.scrollIntoView({ behavior: "smooth" });
-            }}
-          >
+          <button className="viewAll" onClick={() => { setActive("All"); document.getElementById("shop")?.scrollIntoView({ behavior: "smooth" }); }}>
             VIEW ALL <ArrowUpRight size={17} />
           </button>
         </div>
@@ -481,40 +476,14 @@ export default function Home() {
 
               return (
                 <article className="featuredCard" key={product.id}>
-                  <button
-                    className="featuredImage"
-                    onClick={() => setSelectedProduct(product)}
-                    aria-label={`View ${product.name}`}
-                  >
-                    {product.imageUrl ? (
-                      <img src={product.imageUrl} alt={product.name} />
-                    ) : (
-                      <span className="noImage">YUSEE PLUGS</span>
-                    )}
+                  <button className="featuredImage" onClick={() => setSelectedProduct(product)} aria-label={`View ${product.name}`}>
+                    {product.imageUrl ? <img src={product.imageUrl} alt={product.name} /> : <span className="noImage">YUSEE PLUGS</span>}
                     {!inStock && <span className="soldOut">SOLD OUT</span>}
                   </button>
-
-                  <button
-                    className={`saveButton ${saved.includes(product.id) ? "isSaved" : ""}`}
-                    aria-label="Save product"
-                    onClick={() =>
-                      setSaved(old =>
-                        old.includes(product.id)
-                          ? old.filter(id => id !== product.id)
-                          : [...old, product.id]
-                      )
-                    }
-                  >
-                    <Heart
-                      size={21}
-                      fill={saved.includes(product.id) ? "currentColor" : "none"}
-                    />
+                  <button className={`saveButton ${saved.includes(product.id) ? "isSaved" : ""}`} aria-label="Save product" onClick={() => setSaved(old => old.includes(product.id) ? old.filter(id => id !== product.id) : [...old, product.id])}>
+                    <Heart size={21} fill={saved.includes(product.id) ? "currentColor" : "none"} />
                   </button>
-
-                  <button
-                    className="featuredInfo"
-                    onClick={() => setSelectedProduct(product)}
-                  >
+                  <button className="featuredInfo" onClick={() => setSelectedProduct(product)}>
                     <span>{product.name}</span>
                     {price && <b>{price}</b>}
                   </button>
@@ -529,40 +498,16 @@ export default function Home() {
         <div className="sectionHeading">
           <div>
             <p className="eyebrow">SHOP THE COLLECTION</p>
-            <h2>
-              {active === "All" ? "ALL PRODUCTS" : `${active.toUpperCase()} COLLECTION`}
-            </h2>
+            <h2>{active === "All" ? "ALL PRODUCTS" : `${active.toUpperCase()} COLLECTION`}</h2>
           </div>
-          <span className="pieceCount">
-            {productsLoading ? "..." : `${visible.length} ITEMS`}
-          </span>
+          <span className="pieceCount">{productsLoading ? "..." : `${visible.length} ITEMS`}</span>
         </div>
 
         <div className="shopFilters">
-          <button
-            className={active === "All" ? "selectedFilter" : ""}
-            onClick={() => setActive("All")}
-          >
-            ALL
-          </button>
-          <button
-            className={active === "Men" ? "selectedFilter" : ""}
-            onClick={() => setActive("Men")}
-          >
-            MENS
-          </button>
-          <button
-            className={active === "Women" ? "selectedFilter" : ""}
-            onClick={() => setActive("Women")}
-          >
-            WOMENS
-          </button>
-          <button
-            className={active === "Electronics" ? "selectedFilter" : ""}
-            onClick={() => setActive("Electronics")}
-          >
-            ELECTRONICS
-          </button>
+          <button className={active === "All" ? "selectedFilter" : ""} onClick={() => setActive("All")}>ALL</button>
+          <button className={active === "Men" ? "selectedFilter" : ""} onClick={() => setActive("Men")}>MENS</button>
+          <button className={active === "Women" ? "selectedFilter" : ""} onClick={() => setActive("Women")}>WOMENS</button>
+          <button className={active === "Electronics" ? "selectedFilter" : ""} onClick={() => setActive("Electronics")}>ELECTRONICS</button>
           {query && <span>SEARCH: {query}</span>}
         </div>
 
@@ -580,40 +525,14 @@ export default function Home() {
 
               return (
                 <article className="shopCard" key={product.id}>
-                  <button
-                    className="shopImage"
-                    onClick={() => setSelectedProduct(product)}
-                    aria-label={`View ${product.name}`}
-                  >
-                    {product.imageUrl ? (
-                      <img src={product.imageUrl} alt={product.name} />
-                    ) : (
-                      <span className="noImage">YUSEE PLUGS</span>
-                    )}
+                  <button className="shopImage" onClick={() => setSelectedProduct(product)} aria-label={`View ${product.name}`}>
+                    {product.imageUrl ? <img src={product.imageUrl} alt={product.name} /> : <span className="noImage">YUSEE PLUGS</span>}
                     {!inStock && <span className="soldOut">SOLD OUT</span>}
                   </button>
-
-                  <button
-                    className={`saveButton ${saved.includes(product.id) ? "isSaved" : ""}`}
-                    aria-label="Save product"
-                    onClick={() =>
-                      setSaved(old =>
-                        old.includes(product.id)
-                          ? old.filter(id => id !== product.id)
-                          : [...old, product.id]
-                      )
-                    }
-                  >
-                    <Heart
-                      size={20}
-                      fill={saved.includes(product.id) ? "currentColor" : "none"}
-                    />
+                  <button className={`saveButton ${saved.includes(product.id) ? "isSaved" : ""}`} aria-label="Save product" onClick={() => setSaved(old => old.includes(product.id) ? old.filter(id => id !== product.id) : [...old, product.id])}>
+                    <Heart size={20} fill={saved.includes(product.id) ? "currentColor" : "none"} />
                   </button>
-
-                  <button
-                    className="shopInfo"
-                    onClick={() => setSelectedProduct(product)}
-                  >
+                  <button className="shopInfo" onClick={() => setSelectedProduct(product)}>
                     <span>{product.name}</span>
                     {price && <b>{price}</b>}
                   </button>
@@ -624,7 +543,6 @@ export default function Home() {
         )}
       </section>
 
-      {/* NEW FOOTER */}
       <footer className="footer">
         <div className="footerTop">
           <div className="footerBrand">
@@ -635,10 +553,7 @@ export default function Home() {
 
         <div className="footerAccordion">
           <details>
-            <summary>
-              <span>CUSTOMER SERVICE</span>
-              <span className="footerPlus">+</span>
-            </summary>
+            <summary><span>CUSTOMER SERVICE</span><span className="footerPlus">+</span></summary>
             <div className="footerAccordionContent">
               <Link href="/delivery">DELIVERY INFORMATION</Link>
               <Link href="/returns">RETURNS & REFUNDS</Link>
@@ -646,35 +561,15 @@ export default function Home() {
               <Link href="/faq">FAQ</Link>
             </div>
           </details>
-
           <details>
-            <summary>
-              <span>ELEVATE YOUR EVERYDAY</span>
-              <span className="footerPlus">+</span>
-            </summary>
+            <summary><span>ELEVATE YOUR EVERYDAY</span><span className="footerPlus">+</span></summary>
             <div className="footerAccordionContent newsletterContent">
-              <p>
-                JOIN THE YUSEE PLUGS COMMUNITY FOR NEW DROPS,
-                EXCLUSIVE UPDATES AND MORE.
-              </p>
-              <form
-                className="newsletterForm"
-                onSubmit={e => {
-                  e.preventDefault();
-                  alert("Newsletter signup is not yet connected.");
-                }}
-              >
-                <input
-                  type="email"
-                  placeholder="ENTER YOUR EMAIL ADDRESS"
-                  aria-label="Email address"
-                  required
-                />
+              <p>JOIN THE YUSEE PLUGS COMMUNITY FOR NEW DROPS, EXCLUSIVE UPDATES AND MORE.</p>
+              <form className="newsletterForm" onSubmit={e => { e.preventDefault(); alert("Newsletter signup is not yet connected."); }}>
+                <input type="email" placeholder="ENTER YOUR EMAIL ADDRESS" aria-label="Email address" required />
                 <button type="submit">SIGN UP <ArrowUpRight size={18} /></button>
               </form>
-              <p className="newsletterDisclaimer">
-                BY SIGNING UP, YOU AGREE TO RECEIVE EMAIL UPDATES FROM YUSEE PLUGS.
-              </p>
+              <p className="newsletterDisclaimer">BY SIGNING UP, YOU AGREE TO RECEIVE EMAIL UPDATES FROM YUSEE PLUGS.</p>
             </div>
           </details>
         </div>
@@ -703,56 +598,27 @@ export default function Home() {
 
       {selectedProduct && (
         <div className="modalBackdrop" onClick={() => setSelectedProduct(null)}>
-          <section
-            className="productModal"
-            role="dialog"
-            aria-modal="true"
-            aria-label={selectedProduct.name}
-            onClick={e => e.stopPropagation()}
-          >
-            <button
-              className="modalClose"
-              aria-label="Close product"
-              onClick={() => setSelectedProduct(null)}
-            >
+          <section className="productModal" role="dialog" aria-modal="true" aria-label={selectedProduct.name} onClick={e => e.stopPropagation()}>
+            <button className="modalClose" aria-label="Close product" onClick={() => setSelectedProduct(null)}>
               <X />
             </button>
-
             <div className="modalImage">
-              {selectedProduct.imageUrl ? (
-                <img src={selectedProduct.imageUrl} alt={selectedProduct.name} />
-              ) : (
-                <span className="noImage">YUSEE PLUGS</span>
-              )}
+              {selectedProduct.imageUrl ? <img src={selectedProduct.imageUrl} alt={selectedProduct.name} /> : <span className="noImage">YUSEE PLUGS</span>}
             </div>
-
             <div className="modalDetails">
               <p className="eyebrow">YUSEE PLUGS</p>
               <h2>{selectedProduct.name}</h2>
-
-              {modalVariant && (
-                <strong className="modalPrice">
-                  £{(modalVariant.pricePence / 100).toFixed(2)}
-                </strong>
-              )}
-
-              {selectedProduct.description && (
-                <p className="modalDescription">{selectedProduct.description}</p>
-              )}
+              {modalVariant && <strong className="modalPrice">£{(modalVariant.pricePence / 100).toFixed(2)}</strong>}
+              {selectedProduct.description && <p className="modalDescription">{selectedProduct.description}</p>}
 
               {modalSizes.length > 0 && (
                 <label className="variantLabel">
                   SIZE
-                  <select
-                    value={modalVariant?.size || ""}
-                    onChange={e => changeSize(selectedProduct, e.target.value)}
-                  >
+                  <select value={modalVariant?.size || ""} onChange={e => changeSize(selectedProduct, e.target.value)}>
                     {modalSizes.map(size => (
                       <option key={size} value={size}>
                         {size}
-                        {!selectedProduct.variants.some(v => v.size === size && v.stock > 0)
-                          ? " — SOLD OUT"
-                          : ""}
+                        {!selectedProduct.variants.some(v => v.size === size && v.stock > 0) ? " — SOLD OUT" : ""}
                       </option>
                     ))}
                   </select>
@@ -762,16 +628,11 @@ export default function Home() {
               {modalColours.length > 0 && (
                 <label className="variantLabel">
                   COLOUR
-                  <select
-                    value={modalVariant?.colour || ""}
-                    onChange={e => changeColour(selectedProduct, e.target.value)}
-                  >
+                  <select value={modalVariant?.colour || ""} onChange={e => changeColour(selectedProduct, e.target.value)}>
                     {modalColours.map(colour => (
                       <option key={colour} value={colour}>
                         {colour}
-                        {!selectedProduct.variants.some(v => v.colour === colour && v.stock > 0)
-                          ? " — SOLD OUT"
-                          : ""}
+                        {!selectedProduct.variants.some(v => v.colour === colour && v.stock > 0) ? " — SOLD OUT" : ""}
                       </option>
                     ))}
                   </select>
@@ -781,18 +642,11 @@ export default function Home() {
               {modalDeliveries.length > 0 && (
                 <label className="variantLabel">
                   DELIVERY
-                  <select
-                    value={modalVariant?.delivery || ""}
-                    onChange={e => changeDelivery(selectedProduct, e.target.value)}
-                  >
+                  <select value={modalVariant?.delivery || ""} onChange={e => changeDelivery(selectedProduct, e.target.value)}>
                     {modalDeliveries.map(delivery => (
                       <option key={delivery} value={delivery}>
                         {delivery}
-                        {!selectedProduct.variants.some(
-                          v => v.delivery === delivery && v.stock > 0
-                        )
-                          ? " — SOLD OUT"
-                          : ""}
+                        {!selectedProduct.variants.some(v => v.delivery === delivery && v.stock > 0) ? " — SOLD OUT" : ""}
                       </option>
                     ))}
                   </select>
@@ -800,36 +654,19 @@ export default function Home() {
               )}
 
               <p className={`stockText ${modalVariant?.stock ? "inStock" : "outStock"}`}>
-                {modalVariant
-                  ? modalVariant.stock > 0
-                    ? `${modalVariant.stock} AVAILABLE`
-                    : "THIS OPTION IS SOLD OUT"
-                  : "NO OPTIONS AVAILABLE"}
+                {modalVariant ? modalVariant.stock > 0 ? `${modalVariant.stock} AVAILABLE` : "THIS OPTION IS SOLD OUT" : "NO OPTIONS AVAILABLE"}
               </p>
 
-              <button
-                className="modalPrimary"
-                disabled={!modalVariant || modalVariant.stock < 1}
-                onClick={() => modalVariant && addToBag(modalVariant)}
-              >
+              <button className="modalPrimary" disabled={!modalVariant || modalVariant.stock < 1} onClick={() => modalVariant && addToBag(modalVariant)}>
                 ADD TO BAG
               </button>
 
-              <button
-                className="modalSecondary"
-                disabled={checkoutLoading || !modalVariant || modalVariant.stock < 1}
-                onClick={() =>
-                  modalVariant &&
-                  startCheckout([{ variantId: modalVariant.id, quantity: 1 }])
-                }
-              >
+              <button className="modalSecondary" disabled={checkoutLoading || !modalVariant || modalVariant.stock < 1} onClick={() => modalVariant && startCheckout([{ variantId: modalVariant.id, quantity: 1 }])}>
                 {checkoutLoading ? "CONNECTING..." : "BUY NOW"}
               </button>
 
               <p className="deliveryNote">
-                {modalVariant?.delivery
-                  ? `${modalVariant.delivery.toUpperCase()} DELIVERY AVAILABLE`
-                  : "DELIVERY AVAILABLE"}
+                {modalVariant?.delivery ? `${modalVariant.delivery.toUpperCase()} DELIVERY AVAILABLE` : "DELIVERY AVAILABLE"}
               </p>
             </div>
           </section>
@@ -841,26 +678,11 @@ export default function Home() {
           <aside className="drawer menuDrawer" onClick={e => e.stopPropagation()}>
             <div className="drawerHeader">
               <Link href="/" className="logo">YUSEE PLUGS</Link>
-              <button
-                className="headerIcon"
-                aria-label="Close menu"
-                onClick={() => setMenuOpen(false)}
-              >
-                <X />
-              </button>
+              <button className="headerIcon" aria-label="Close menu" onClick={() => setMenuOpen(false)}><X /></button>
             </div>
-
-            <div className="drawerGroup">
-              <button onClick={() => selectGender("men")}>MENS</button>
-            </div>
-
-            <div className="drawerGroup">
-              <button onClick={() => selectGender("women")}>WOMENS</button>
-            </div>
-
-            <div className="drawerGroup">
-              <button onClick={selectElectronics}>ELECTRONICS</button>
-            </div>
+            <div className="drawerGroup"><button onClick={() => selectGender("men")}>MENS</button></div>
+            <div className="drawerGroup"><button onClick={() => selectGender("women")}>WOMENS</button></div>
+            <div className="drawerGroup"><button onClick={selectElectronics}>ELECTRONICS</button></div>
           </aside>
         </div>
       )}
@@ -870,13 +692,7 @@ export default function Home() {
           <aside className="drawer bagDrawer" onClick={e => e.stopPropagation()}>
             <div className="drawerHeader">
               <h2>YOUR BAG ({bagCount})</h2>
-              <button
-                className="headerIcon"
-                aria-label="Close bag"
-                onClick={() => setBagOpen(false)}
-              >
-                <X />
-              </button>
+              <button className="headerIcon" aria-label="Close bag" onClick={() => setBagOpen(false)}><X /></button>
             </div>
 
             {bagItems.length === 0 ? (
@@ -884,40 +700,21 @@ export default function Home() {
                 <ShoppingBag size={36} />
                 <h3>YOUR BAG IS EMPTY</h3>
                 <p>Find your next favourite.</p>
-                <button className="checkoutButton" onClick={() => setBagOpen(false)}>
-                  CONTINUE SHOPPING
-                </button>
+                <button className="checkoutButton" onClick={() => setBagOpen(false)}>CONTINUE SHOPPING</button>
               </div>
             ) : (
               <>
                 <div className="bagLines">
                   {bagItems.map(item => (
                     <div className="bagLine" key={item.variantId}>
-                      {item.product.imageUrl ? (
-                        <img src={item.product.imageUrl} alt={item.product.name} />
-                      ) : (
-                        <div className="bagNoImage">YUSEE</div>
-                      )}
-
+                      {item.product.imageUrl ? <img src={item.product.imageUrl} alt={item.product.name} /> : <div className="bagNoImage">YUSEE</div>}
                       <div className="bagLineDetails">
                         <b>{item.product.name}</b>
                         {item.variant.size && <span>Size: {item.variant.size}</span>}
                         {item.variant.colour && <span>Colour: {item.variant.colour}</span>}
-                        {item.variant.delivery && (
-                          <span>Delivery: {item.variant.delivery}</span>
-                        )}
-                        <span>
-                          £{(item.variant.pricePence / 100).toFixed(2)} × {item.quantity}
-                        </span>
-                        <button
-                          onClick={() =>
-                            setBag(old =>
-                              old.filter(line => line.variantId !== item.variantId)
-                            )
-                          }
-                        >
-                          REMOVE
-                        </button>
+                        {item.variant.delivery && <span>Delivery: {item.variant.delivery}</span>}
+                        <span>£{(item.variant.pricePence / 100).toFixed(2)} × {item.quantity}</span>
+                        <button onClick={() => setBag(old => old.filter(line => line.variantId !== item.variantId))}>REMOVE</button>
                       </div>
                     </div>
                   ))}
@@ -928,23 +725,8 @@ export default function Home() {
                     <span>SUBTOTAL</span>
                     <b>£{(total / 100).toFixed(2)}</b>
                   </div>
-                  <p>
-                    {total >= 10000
-                      ? "Complimentary UK delivery."
-                      : "UK delivery is £4.99. Free delivery over £100."}
-                  </p>
-                  <button
-                    className="checkoutButton"
-                    disabled={checkoutLoading}
-                    onClick={() =>
-                      startCheckout(
-                        bagItems.map(item => ({
-                          variantId: item.variantId,
-                          quantity: item.quantity,
-                        }))
-                      )
-                    }
-                  >
+                  <p>Delivery is included in the selected product price. Your delivery type is shown beside each item.</p>
+                  <button className="checkoutButton" disabled={checkoutLoading} onClick={() => startCheckout(bagItems.map(item => ({ variantId: item.variantId, quantity: item.quantity })))}>
                     {checkoutLoading ? "CONNECTING TO STRIPE..." : "CHECKOUT"}
                   </button>
                 </div>
@@ -955,1180 +737,168 @@ export default function Home() {
       )}
 
       <style jsx>{`
-        .site {
-          min-height: 100vh;
-          background: #090909;
-          color: #f7f7f7;
-          font-family: Arial, Helvetica, sans-serif;
-        }
-
-        button {
-          font: inherit;
-        }
-
-        .header {
-          height: 66px;
-          display: grid;
-          grid-template-columns: 1fr auto 1fr;
-          align-items: center;
-          padding: 0 26px;
-          background: #050505;
-          border-bottom: 1px solid #292929;
-          position: relative;
-          z-index: 5;
-        }
-
-        .logo {
-          color: #fff;
-          text-decoration: none;
-          font-size: clamp(19px, 3vw, 27px);
-          font-weight: 950;
-          letter-spacing: -1px;
-          white-space: nowrap;
-        }
-
-        .headerIcon {
-          border: 0;
-          background: transparent;
-          color: #fff;
-          cursor: pointer;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          padding: 8px;
-          position: relative;
-          text-decoration: none;
-        }
-
-        .menuIcon {
-          justify-self: start;
-          padding-left: 0;
-        }
-
-        .headerRight {
-          justify-self: end;
-          display: flex;
-          align-items: center;
-          gap: 13px;
-        }
-
-        .bagCount {
-          position: absolute;
-          top: 0;
-          right: 0;
-          min-width: 16px;
-          height: 16px;
-          padding: 0 4px;
-          border-radius: 20px;
-          background: #fff;
-          color: #000;
-          font-size: 10px;
-          font-weight: 800;
-          display: grid;
-          place-items: center;
-        }
-
-        .genderNav {
-          display: flex;
-          flex-direction: column;
-          gap: 0;
-          padding: 12px 18px;
-          background: #080808;
-          border-bottom: 1px solid #333;
-        }
-
-        .genderRow {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          width: 100%;
-        }
-
-        .genderRow button {
-          min-height: 52px;
-          background: transparent;
-          border: 0;
-          color: #fff;
-          font-size: 16px;
-          font-weight: 900;
-          cursor: pointer;
-          letter-spacing: 1px;
-        }
-
-        .genderRow button + button {
-          border-left: 1px solid #333;
-        }
-
-        .electronicsNav {
-          display: block;
-          width: 100%;
-          min-height: 52px;
-          padding: 15px;
-          background: #fff;
-          color: #080808;
-          border: 0;
-          font-size: 15px;
-          font-weight: 950;
-          letter-spacing: 1.5px;
-          cursor: pointer;
-          transition: background .2s ease, color .2s ease;
-        }
-
-        .electronicsNav:hover {
-          background: #d9d9d9;
-        }
-
-        .searchPanel {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 14px 24px;
-          background: #171717;
-          border-bottom: 1px solid #333;
-        }
-
-        .searchPanel input {
-          flex: 1;
-          min-width: 0;
-          background: transparent;
-          color: #fff;
-          border: 0;
-          outline: none;
-          font-size: 15px;
-        }
-
-        .searchPanel button {
-          border: 0;
-          background: transparent;
-          color: #fff;
-          cursor: pointer;
-        }
-
-        .hero {
-          min-height: min(690px, 76vw);
-          height: 590px;
-          max-height: 78vh;
-          position: relative;
-          display: flex;
-          align-items: center;
-          overflow: hidden;
-          background: #171717;
-        }
-
-        .heroImage {
-          position: absolute;
-          inset: 0;
-          background-image: url("/F126698D-BFBB-4540-9DFD-67723C1C9EC3.png");
-          background-size: cover;
-          background-position: center 38%;
-          transform: scale(1.01);
-        }
-
-        .heroOverlay {
-          position: absolute;
-          inset: 0;
-          background:
-            linear-gradient(90deg, rgba(0,0,0,.76) 0%, rgba(0,0,0,.48) 43%, rgba(0,0,0,.08) 100%),
-            linear-gradient(0deg, rgba(0,0,0,.48), transparent 28%);
-        }
-
-        .heroContent {
-          position: relative;
-          z-index: 1;
-          padding: 50px 5%;
-          max-width: 590px;
-        }
-
-        .heroEyebrow {
-          font-size: 13px;
-          letter-spacing: 2.5px;
-          margin: 0 0 18px;
-        }
-
-        .heroContent h1 {
-          font-size: clamp(66px, 10vw, 112px);
-          line-height: .82;
-          letter-spacing: -5px;
-          font-weight: 950;
-          margin: 0;
-        }
-
-        .heroSub {
-          font-size: 11px;
-          letter-spacing: 2px;
-          margin: 22px 0 30px;
-        }
-
-        .heroButton {
-          min-width: 220px;
-          min-height: 54px;
-          padding: 0 22px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 28px;
-          color: #fff;
-          background: transparent;
-          border: 1px solid #fff;
-          font-size: 13px;
-          font-weight: 800;
-          cursor: pointer;
-        }
-
-        .heroButton:hover {
-          background: #fff;
-          color: #000;
-        }
-
-        .heroBottom {
-          position: absolute;
-          z-index: 1;
-          bottom: 24px;
-          left: 3.5%;
-          right: 3.5%;
-          display: flex;
-          align-items: center;
-          gap: 16px;
-          font-size: 11px;
-          letter-spacing: 1px;
-        }
-
-        .heroProgress {
-          width: 150px;
-          height: 3px;
-          background: rgba(255,255,255,.3);
-        }
-
-        .heroProgress i {
-          display: block;
-          width: 33%;
-          height: 100%;
-          background: #fff;
-        }
-
-        .heroCollection {
-          margin-left: auto;
-          opacity: .8;
-        }
-
-        .featured,
-        .shopSection {
-          padding: 58px 3.5%;
-        }
-
-        .featured {
-          background: #090909;
-        }
-
-        .sectionHeading {
-          display: flex;
-          justify-content: space-between;
-          align-items: end;
-          gap: 18px;
-          margin-bottom: 26px;
-        }
-
-        .eyebrow {
-          color: #aaa;
-          font-size: 10px;
-          letter-spacing: 2.5px;
-          margin: 0 0 8px;
-        }
-
-        .sectionHeading h2 {
-          font-size: clamp(25px, 4vw, 39px);
-          line-height: 1;
-          letter-spacing: -1.3px;
-          font-weight: 950;
-          margin: 0;
-        }
-
-        .viewAll {
-          color: #fff;
-          background: transparent;
-          border: 0;
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          font-size: 11px;
-          font-weight: 800;
-          cursor: pointer;
-          white-space: nowrap;
-        }
-
-        .featuredGrid,
-        .shopGrid {
-          display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
-          gap: 20px;
-        }
-
-        .featuredCard,
-        .shopCard {
-          position: relative;
-          min-width: 0;
-        }
-
-        .featuredImage,
-        .shopImage {
-          position: relative;
-          display: block;
-          width: 100%;
-          aspect-ratio: 1 / 1.08;
-          padding: 0;
-          overflow: hidden;
-          border: 0;
-          background: #242424;
-          cursor: pointer;
-          text-align: center;
-        }
-
-        .featuredImage img,
-        .shopImage img {
-          display: block;
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          transition: transform .5s ease;
-        }
-
-        .featuredImage:hover img,
-        .shopImage:hover img {
-          transform: scale(1.04);
-        }
-
-        .noImage {
-          height: 100%;
-          width: 100%;
-          min-height: 180px;
-          display: grid;
-          place-items: center;
-          color: #777;
-          font-weight: 900;
-          letter-spacing: 2px;
-          font-size: 13px;
-        }
-
-        .saveButton {
-          position: absolute;
-          right: 12px;
-          top: 12px;
-          width: 36px;
-          height: 36px;
-          display: grid;
-          place-items: center;
-          border: 0;
-          background: rgba(0,0,0,.2);
-          color: white;
-          cursor: pointer;
-        }
-
-        .saveButton.isSaved {
-          color: #fff;
-        }
-
-        .soldOut {
-          position: absolute;
-          left: 10px;
-          bottom: 10px;
-          padding: 7px 9px;
-          background: #fff;
-          color: #111;
-          font-size: 9px;
-          font-weight: 900;
-          letter-spacing: 1px;
-        }
-
-        .featuredInfo,
-        .shopInfo {
-          width: 100%;
-          display: flex;
-          flex-direction: column;
-          align-items: flex-start;
-          gap: 6px;
-          margin-top: 12px;
-          padding: 0;
-          border: 0;
-          color: #fff;
-          background: transparent;
-          text-align: left;
-          cursor: pointer;
-        }
-
-        .featuredInfo span,
-        .shopInfo span {
-          font-size: 13px;
-          font-weight: 700;
-          line-height: 1.35;
-        }
-
-        .featuredInfo b,
-        .shopInfo b {
-          font-size: 13px;
-          font-weight: 500;
-        }
-
-        .shopSection {
-          background: #111;
-          border-top: 1px solid #252525;
-        }
-
-        .pieceCount {
-          color: #aaa;
-          font-size: 10px;
-          letter-spacing: 1px;
-          white-space: nowrap;
-        }
-
-        .shopFilters {
-          display: flex;
-          gap: 22px;
-          align-items: center;
-          flex-wrap: wrap;
-          margin: 0 0 25px;
-          padding-bottom: 13px;
-          border-bottom: 1px solid #333;
-        }
-
-        .shopFilters button {
-          padding: 0 0 8px;
-          border: 0;
-          border-bottom: 2px solid transparent;
-          background: transparent;
-          color: #999;
-          font-size: 10px;
-          font-weight: 800;
-          letter-spacing: 1px;
-          cursor: pointer;
-        }
-
-        .shopFilters button.selectedFilter {
-          color: #fff;
-          border-bottom-color: #fff;
-        }
-
-        .shopFilters span {
-          margin-left: auto;
-          color: #999;
-          font-size: 10px;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .statusMessage {
-          padding: 42px 10px;
-          text-align: center;
-          color: #aaa;
-          font-size: 12px;
-          letter-spacing: 1px;
-        }
-
-        /* FOOTER */
-
-        .footer {
-          background: #252525;
-          color: #fff;
-          padding: 45px 5% 22px;
-          border-top: 1px solid #333;
-        }
-
-        .footer,
-        .footer * {
-          font-family: Arial, Helvetica, sans-serif;
-          box-sizing: border-box;
-        }
-
-        .footerTop {
-          padding-bottom: 35px;
-        }
-
-        .footerLogo {
-          display: inline-block;
-          font-size: 30px;
-          font-weight: 950;
-          letter-spacing: -1.5px;
-          color: #fff;
-          text-decoration: none;
-        }
-
-        .footerBrand p {
-          font-size: 12px;
-          letter-spacing: 2px;
-          color: #aaa;
-          margin: 12px 0 0;
-        }
-
-        .footerAccordion {
-          border-top: 1px solid #484848;
-        }
-
-        .footerAccordion details {
-          border-bottom: 1px solid #484848;
-        }
-
-        .footerAccordion summary {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 15px;
-          padding: 25px 0;
-          list-style: none;
-          cursor: pointer;
-          font-size: 19px;
-          font-weight: 900;
-          letter-spacing: .5px;
-        }
-
-        .footerAccordion summary::-webkit-details-marker {
-          display: none;
-        }
-
-        .footerPlus {
-          font-size: 25px;
-          font-weight: 300;
-          transition: transform .2s ease;
-        }
-
-        .footerAccordion details[open] .footerPlus {
-          transform: rotate(45deg);
-        }
-
-        .footerAccordionContent {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-start;
-          gap: 19px;
-          padding: 0 0 28px;
-        }
-
-        .footerAccordionContent a {
-          color: #ccc;
-          text-decoration: none;
-          font-size: 14px;
-          letter-spacing: .5px;
-          transition: color .2s ease;
-        }
-
-        .footerAccordionContent a:hover {
-          color: #fff;
-        }
-
-        .newsletterContent > p {
-          color: #bcbcbc;
-          font-size: 12px;
-          line-height: 1.8;
-          letter-spacing: 1px;
-          max-width: 450px;
-          margin: 0;
-        }
-
-        .newsletterForm {
-          display: flex;
-          width: 100%;
-          max-width: 500px;
-          border-bottom: 1px solid #fff;
-          align-items: center;
-        }
-
-        .newsletterForm input {
-          flex: 1;
-          min-width: 0;
-          background: transparent;
-          border: 0;
-          outline: none;
-          color: #fff;
-          padding: 17px 5px;
-          font-size: 12px;
-          letter-spacing: 1px;
-        }
-
-        .newsletterForm input::placeholder {
-          color: #999;
-        }
-
-        .newsletterForm button {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          padding: 14px 5px 14px 15px;
-          border: 0;
-          background: transparent;
-          color: #fff;
-          cursor: pointer;
-          font-size: 12px;
-          font-weight: 900;
-          letter-spacing: 1px;
-          white-space: nowrap;
-        }
-
-        .newsletterDisclaimer {
-          font-size: 10px !important;
-          color: #888 !important;
-          line-height: 1.7;
-          letter-spacing: .6px;
-        }
-
-        .footerPayments {
-          display: flex;
-          flex-wrap: wrap;
-          align-items: center;
-          gap: 10px;
-          padding: 30px 0;
-          border-bottom: 1px solid #484848;
-        }
-
-        .paymentLogo {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          min-width: 49px;
-          height: 31px;
-          padding: 5px 9px;
-          background: #f5f5f5;
-          color: #111;
-          border-radius: 4px;
-          font-size: 12px;
-          font-weight: 900;
-          letter-spacing: .2px;
-        }
-
-        .mastercard {
-          font-size: 10px;
-          font-weight: 800;
-        }
-
-        .paypal {
-          font-style: italic;
-        }
-
-        .applepay {
-          font-size: 10px;
-        }
-
-        .klarna {
-          font-size: 11px;
-          font-weight: 950;
-        }
-
-        .footerCountry {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-          padding: 30px 0;
-          border-bottom: 1px solid #484848;
-        }
-
-        .footerCountry label {
-          font-size: 11px;
-          font-weight: 800;
-          letter-spacing: 1.5px;
-        }
-
-        .footerCountry select {
-          width: fit-content;
-          min-width: 220px;
-          padding: 14px 40px 14px 15px;
-          background: #fff;
-          color: #111;
-          border: 1px solid #fff;
-          border-radius: 0;
-          font-size: 13px;
-        }
-
-        .footerBottom {
-          display: flex;
-          justify-content: space-between;
-          flex-wrap: wrap;
-          gap: 15px;
-          padding-top: 22px;
-          color: #999;
-          font-size: 10px;
-          letter-spacing: 1px;
-          line-height: 1.7;
-        }
-
-        .footerBottom p {
-          margin: 0;
-        }
-
-        .modalBackdrop,
-        .drawerBackdrop {
-          position: fixed;
-          inset: 0;
-          z-index: 50;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          padding: 18px;
-          background: rgba(0,0,0,.78);
-          overflow-y: auto;
-        }
-
-        .productModal {
-          position: relative;
-          width: 100%;
-          max-width: 900px;
-          max-height: 92vh;
-          overflow-y: auto;
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          background: #f5f5f2;
-          color: #111;
-        }
-
-        .modalClose {
-          position: absolute;
-          z-index: 2;
-          top: 12px;
-          right: 12px;
-          width: 40px;
-          height: 40px;
-          border: 0;
-          border-radius: 50%;
-          background: #fff;
-          color: #111;
-          cursor: pointer;
-        }
-
-        .modalImage {
-          min-height: 420px;
-          background: #e6e6e3;
-        }
-
-        .modalImage img {
-          width: 100%;
-          height: 100%;
-          min-height: 420px;
-          object-fit: cover;
-        }
-
-        .modalDetails {
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          gap: 18px;
-          padding: clamp(22px, 4vw, 44px);
-        }
-
-        .modalDetails h2 {
-          font-size: clamp(26px, 4vw, 39px);
-          line-height: 1.05;
-          margin: 0;
-        }
-
-        .modalPrice {
-          font-size: 19px;
-        }
-
-        .modalDescription {
-          color: #666;
-          font-size: 13px;
-          line-height: 1.7;
-          white-space: pre-wrap;
-        }
-
-        .variantLabel {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-          font-size: 10px;
-          font-weight: 800;
-          letter-spacing: 1.5px;
-        }
-
-        .variantLabel select {
-          width: 100%;
-          padding: 13px;
-          border: 1px solid #ccc;
-          background: #fff;
-          color: #111;
-          font-size: 14px;
-        }
-
-        .stockText {
-          font-size: 11px;
-          letter-spacing: .7px;
-        }
-
-        .inStock {
-          color: #397348;
-        }
-
-        .outStock {
-          color: #b3261e;
-        }
-
-        .modalPrimary,
-        .modalSecondary {
-          width: 100%;
-          padding: 16px;
-          font-size: 11px;
-          font-weight: 900;
-          letter-spacing: 1.4px;
-          cursor: pointer;
-        }
-
-        .modalPrimary {
-          background: #111;
-          color: #fff;
-          border: 1px solid #111;
-        }
-
-        .modalSecondary {
-          background: transparent;
-          color: #111;
-          border: 1px solid #111;
-        }
-
-        .modalPrimary:disabled,
-        .modalSecondary:disabled {
-          opacity: .4;
-          cursor: not-allowed;
-        }
-
-        .deliveryNote {
-          text-align: center;
-          color: #777;
-          font-size: 10px;
-          letter-spacing: 1px;
-        }
-
-        .drawerBackdrop {
-          justify-content: flex-start;
-          align-items: stretch;
-          padding: 0;
-        }
-
-        .drawer {
-          width: min(420px, 90vw);
-          height: 100%;
-          overflow-y: auto;
-          padding: 24px;
-          background: #0b0b0b;
-          color: #fff;
-          box-shadow: 10px 0 35px rgba(0,0,0,.35);
-        }
-
-        .bagDrawer {
-          margin-left: auto;
-          box-shadow: -10px 0 35px rgba(0,0,0,.35);
-        }
-
-        .drawerHeader {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 15px;
-          padding-bottom: 22px;
-          border-bottom: 1px solid #333;
-        }
-
-        .drawerHeader h2 {
-          font-size: 17px;
-          letter-spacing: 1px;
-        }
-
-        .drawerGroup {
-          border-bottom: 1px solid #292929;
-        }
-
-        .drawerGroup > button {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          width: 100%;
-          padding: 19px 0;
-          background: transparent;
-          border: 0;
-          color: #fff;
-          font-size: 13px;
-          font-weight: 900;
-          letter-spacing: 1.5px;
-          cursor: pointer;
-        }
-
-        .bagLines {
-          padding: 20px 0;
-        }
-
-        .bagLine {
-          display: flex;
-          gap: 14px;
-          padding: 15px 0;
-          border-bottom: 1px solid #292929;
-        }
-
-        .bagLine img,
-        .bagNoImage {
-          width: 90px;
-          height: 110px;
-          object-fit: cover;
-          background: #252525;
-        }
-
-        .bagNoImage {
-          display: grid;
-          place-items: center;
-          font-size: 10px;
-          font-weight: 900;
-        }
-
-        .bagLineDetails {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-start;
-          gap: 7px;
-          font-size: 11px;
-        }
-
-        .bagLineDetails span {
-          color: #aaa;
-        }
-
-        .bagLineDetails button {
-          padding: 0;
-          margin-top: 4px;
-          border: 0;
-          background: transparent;
-          color: #fff;
-          text-decoration: underline;
-          font-size: 9px;
-          cursor: pointer;
-        }
-
-        .bagSummary {
-          position: sticky;
-          bottom: 0;
-          padding: 18px 0;
-          background: #0b0b0b;
-          border-top: 1px solid #333;
-        }
-
-        .bagSummary > div {
-          display: flex;
-          justify-content: space-between;
-          font-size: 13px;
-        }
-
-        .bagSummary p,
-        .emptyBag p {
-          color: #999;
-          font-size: 11px;
-        }
-
-        .checkoutButton {
-          width: 100%;
-          padding: 16px;
-          border: 0;
-          background: #fff;
-          color: #000;
-          font-size: 11px;
-          font-weight: 900;
-          letter-spacing: 1px;
-          cursor: pointer;
-        }
-
-        .checkoutButton:disabled {
-          opacity: .5;
-        }
-
-        .emptyBag {
-          min-height: 65vh;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 12px;
-          text-align: center;
-        }
-
-        .emptyBag h3 {
-          font-size: 14px;
-          letter-spacing: 1px;
-        }
-
-        @media (max-width: 760px) {
-          .header {
-            height: 62px;
-            padding: 0 13px;
-          }
-
-          .logo {
-            font-size: 19px;
-          }
-
-          .headerRight {
-            gap: 3px;
-          }
-
-          .headerRight .headerIcon {
-            padding: 7px;
-          }
-
-          .genderNav {
-            padding: 10px 12px;
-          }
-
-          .genderRow button {
-            min-height: 48px;
-            font-size: 15px;
-          }
-
-          .electronicsNav {
-            min-height: 48px;
-            font-size: 14px;
-          }
-
-          .hero {
-            height: 590px;
-            min-height: 590px;
-            max-height: none;
-          }
-
-          .heroImage {
-            background-position: 60% center;
-          }
-
-          .heroOverlay {
-            background:
-              linear-gradient(90deg, rgba(0,0,0,.76), rgba(0,0,0,.12)),
-              linear-gradient(0deg, rgba(0,0,0,.5), transparent 35%);
-          }
-
-          .heroContent {
-            padding: 30px 22px;
-          }
-
-          .heroContent h1 {
-            font-size: clamp(67px, 17vw, 95px);
-            letter-spacing: -4px;
-          }
-
-          .heroSub {
-            font-size: 9px;
-            letter-spacing: 1.4px;
-          }
-
-          .heroBottom {
-            left: 20px;
-            right: 20px;
-            bottom: 20px;
-          }
-
-          .heroCollection {
-            display: none;
-          }
-
-          .featured,
-          .shopSection {
-            padding: 38px 15px;
-          }
-
-          .sectionHeading {
-            align-items: end;
-            margin-bottom: 20px;
-          }
-
-          .sectionHeading h2 {
-            font-size: clamp(22px, 6vw, 30px);
-          }
-
-          .viewAll {
-            font-size: 9px;
-            gap: 5px;
-          }
-
-          .featuredGrid,
-          .shopGrid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 22px 12px;
-          }
-
-          .featuredInfo span,
-          .shopInfo span {
-            font-size: 11px;
-          }
-
-          .featuredInfo b,
-          .shopInfo b {
-            font-size: 11px;
-          }
-
-          .saveButton {
-            top: 7px;
-            right: 7px;
-            width: 31px;
-            height: 31px;
-          }
-
-          .shopFilters {
-            gap: 16px;
-          }
-
-          .productModal {
-            grid-template-columns: 1fr;
-            max-width: 480px;
-          }
-
-          .modalImage,
-          .modalImage img {
-            min-height: 260px;
-            max-height: 42vh;
-          }
-
-          .modalDetails {
-            gap: 13px;
-            padding: 22px;
-          }
-
-          .modalDetails h2 {
-            font-size: 27px;
-          }
-
-          .footer {
-            padding: 35px 18px 18px;
-          }
-
-          .footerLogo {
-            font-size: 25px;
-          }
-
-          .footerAccordion summary {
-            font-size: 16px;
-            padding: 23px 0;
-          }
-
-          .footerAccordionContent a {
-            font-size: 13px;
-          }
-
-          .footerPayments {
-            gap: 8px;
-            padding: 25px 0;
-          }
-
-          .paymentLogo {
-            height: 29px;
-            min-width: 43px;
-            font-size: 10px;
-            padding: 4px 7px;
-          }
-
-          .footerCountry select {
-            width: 100%;
-            max-width: 300px;
-          }
-
-          .footerBottom {
-            flex-direction: column;
-            gap: 8px;
-          }
-        }
-
-        @media (min-width: 761px) and (max-width: 1050px) {
-          .featuredGrid,
-          .shopGrid {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-          }
+        .site{min-height:100vh;background:#090909;color:#f7f7f7;font-family:Arial,Helvetica,sans-serif}
+        button{font:inherit}
+        .header{height:66px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:0 26px;background:#050505;border-bottom:1px solid #292929;position:relative;z-index:5}
+        .logo{color:#fff;text-decoration:none;font-size:clamp(19px,3vw,27px);font-weight:950;letter-spacing:-1px;white-space:nowrap}
+        .headerIcon{border:0;background:transparent;color:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:8px;position:relative;text-decoration:none}
+        .menuIcon{justify-self:start;padding-left:0}
+        .headerRight{justify-self:end;display:flex;align-items:center;gap:13px}
+        .bagCount{position:absolute;top:0;right:0;min-width:16px;height:16px;padding:0 4px;border-radius:20px;background:#fff;color:#000;font-size:10px;font-weight:800;display:grid;place-items:center}
+        .genderNav{display:flex;flex-direction:column;padding:12px 18px;background:#080808;border-bottom:1px solid #333}
+        .genderRow{display:grid;grid-template-columns:1fr 1fr;width:100%}
+        .genderRow button{min-height:52px;background:transparent;border:0;color:#fff;font-size:16px;font-weight:900;cursor:pointer;letter-spacing:1px}
+        .genderRow button+button{border-left:1px solid #333}
+        .electronicsNav{display:block;width:100%;min-height:52px;padding:15px;background:#fff;color:#080808;border:0;font-size:15px;font-weight:950;letter-spacing:1.5px;cursor:pointer;transition:background .2s,color .2s}
+        .electronicsNav:hover{background:#d9d9d9}
+        .searchPanel{display:flex;align-items:center;gap:12px;padding:14px 24px;background:#171717;border-bottom:1px solid #333}
+        .searchPanel input{flex:1;min-width:0;background:transparent;color:#fff;border:0;outline:none;font-size:15px}
+        .searchPanel button{border:0;background:transparent;color:#fff;cursor:pointer}
+        .hero{min-height:min(690px,76vw);height:590px;max-height:78vh;position:relative;display:flex;align-items:center;overflow:hidden;background:#171717}
+        .heroImage{position:absolute;inset:0;background-image:url("/F126698D-BFBB-4540-9DFD-67723C1C9EC3.png");background-size:cover;background-position:center 38%;transform:scale(1.01)}
+        .heroOverlay{position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,.76) 0%,rgba(0,0,0,.48) 43%,rgba(0,0,0,.08) 100%),linear-gradient(0deg,rgba(0,0,0,.48),transparent 28%)}
+        .heroContent{position:relative;z-index:1;padding:50px 5%;max-width:590px}
+        .heroEyebrow{font-size:13px;letter-spacing:2.5px;margin:0 0 18px}
+        .heroContent h1{font-size:clamp(66px,10vw,112px);line-height:.82;letter-spacing:-5px;font-weight:950;margin:0}
+        .heroSub{font-size:11px;letter-spacing:2px;margin:22px 0 30px}
+        .heroButton{min-width:220px;min-height:54px;padding:0 22px;display:inline-flex;align-items:center;justify-content:space-between;gap:28px;color:#fff;background:transparent;border:1px solid #fff;font-size:13px;font-weight:800;cursor:pointer}
+        .heroButton:hover{background:#fff;color:#000}
+        .heroBottom{position:absolute;z-index:1;bottom:24px;left:3.5%;right:3.5%;display:flex;align-items:center;gap:16px;font-size:11px;letter-spacing:1px}
+        .heroProgress{width:150px;height:3px;background:rgba(255,255,255,.3)}
+        .heroProgress i{display:block;width:33%;height:100%;background:#fff}
+        .heroCollection{margin-left:auto;opacity:.8}
+        .featured,.shopSection{padding:58px 3.5%}
+        .featured{background:#090909}
+        .sectionHeading{display:flex;justify-content:space-between;align-items:end;gap:18px;margin-bottom:26px}
+        .eyebrow{color:#aaa;font-size:10px;letter-spacing:2.5px;margin:0 0 8px}
+        .sectionHeading h2{font-size:clamp(25px,4vw,39px);line-height:1;letter-spacing:-1.3px;font-weight:950;margin:0}
+        .viewAll{color:#fff;background:transparent;border:0;display:flex;align-items:center;gap:12px;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap}
+        .featuredGrid,.shopGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px}
+        .featuredCard,.shopCard{position:relative;min-width:0}
+        .featuredImage,.shopImage{position:relative;display:block;width:100%;aspect-ratio:1/1.08;padding:0;overflow:hidden;border:0;background:#242424;cursor:pointer;text-align:center}
+        .featuredImage img,.shopImage img{display:block;width:100%;height:100%;object-fit:cover;transition:transform .5s}
+        .featuredImage:hover img,.shopImage:hover img{transform:scale(1.04)}
+        .noImage{height:100%;width:100%;min-height:180px;display:grid;place-items:center;color:#777;font-weight:900;letter-spacing:2px;font-size:13px}
+        .saveButton{position:absolute;right:12px;top:12px;width:36px;height:36px;display:grid;place-items:center;border:0;background:rgba(0,0,0,.2);color:white;cursor:pointer}
+        .saveButton.isSaved{color:#fff}
+        .soldOut{position:absolute;left:10px;bottom:10px;padding:7px 9px;background:#fff;color:#111;font-size:9px;font-weight:900;letter-spacing:1px}
+        .featuredInfo,.shopInfo{width:100%;display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin-top:12px;padding:0;border:0;color:#fff;background:transparent;text-align:left;cursor:pointer}
+        .featuredInfo span,.shopInfo span{font-size:13px;font-weight:700;line-height:1.35}
+        .featuredInfo b,.shopInfo b{font-size:13px;font-weight:500}
+        .shopSection{background:#111;border-top:1px solid #252525}
+        .pieceCount{color:#aaa;font-size:10px;letter-spacing:1px;white-space:nowrap}
+        .shopFilters{display:flex;gap:22px;align-items:center;flex-wrap:wrap;margin:0 0 25px;padding-bottom:13px;border-bottom:1px solid #333}
+        .shopFilters button{padding:0 0 8px;border:0;border-bottom:2px solid transparent;background:transparent;color:#999;font-size:10px;font-weight:800;letter-spacing:1px;cursor:pointer}
+        .shopFilters button.selectedFilter{color:#fff;border-bottom-color:#fff}
+        .shopFilters span{margin-left:auto;color:#999;font-size:10px;overflow:hidden;text-overflow:ellipsis}
+        .statusMessage{padding:42px 10px;text-align:center;color:#aaa;font-size:12px;letter-spacing:1px}
+        .footer{background:#252525;color:#fff;padding:45px 5% 22px;border-top:1px solid #333}
+        .footer,.footer *{font-family:Arial,Helvetica,sans-serif;box-sizing:border-box}
+        .footerTop{padding-bottom:35px}
+        .footerLogo{display:inline-block;font-size:30px;font-weight:950;letter-spacing:-1.5px;color:#fff;text-decoration:none}
+        .footerBrand p{font-size:12px;letter-spacing:2px;color:#aaa;margin:12px 0 0}
+        .footerAccordion{border-top:1px solid #484848}
+        .footerAccordion details{border-bottom:1px solid #484848}
+        .footerAccordion summary{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:25px 0;list-style:none;cursor:pointer;font-size:19px;font-weight:900;letter-spacing:.5px}
+        .footerAccordion summary::-webkit-details-marker{display:none}
+        .footerPlus{font-size:25px;font-weight:300;transition:transform .2s}
+        .footerAccordion details[open] .footerPlus{transform:rotate(45deg)}
+        .footerAccordionContent{display:flex;flex-direction:column;align-items:flex-start;gap:19px;padding:0 0 28px}
+        .footerAccordionContent a{color:#ccc;text-decoration:none;font-size:14px;letter-spacing:.5px;transition:color .2s}
+        .footerAccordionContent a:hover{color:#fff}
+        .newsletterContent>p{color:#bcbcbc;font-size:12px;line-height:1.8;letter-spacing:1px;max-width:450px;margin:0}
+        .newsletterForm{display:flex;width:100%;max-width:500px;border-bottom:1px solid #fff;align-items:center}
+        .newsletterForm input{flex:1;min-width:0;background:transparent;border:0;outline:none;color:#fff;padding:17px 5px;font-size:12px;letter-spacing:1px}
+        .newsletterForm input::placeholder{color:#999}
+        .newsletterForm button{display:flex;align-items:center;gap:10px;padding:14px 5px 14px 15px;border:0;background:transparent;color:#fff;cursor:pointer;font-size:12px;font-weight:900;letter-spacing:1px;white-space:nowrap}
+        .newsletterDisclaimer{font-size:10px!important;color:#888!important;line-height:1.7;letter-spacing:.6px}
+        .footerPayments{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:30px 0;border-bottom:1px solid #484848}
+        .paymentLogo{display:inline-flex;align-items:center;justify-content:center;min-width:49px;height:31px;padding:5px 9px;background:#f5f5f5;color:#111;border-radius:4px;font-size:12px;font-weight:900;letter-spacing:.2px}
+        .mastercard{font-size:10px;font-weight:800}.paypal{font-style:italic}.applepay{font-size:10px}.klarna{font-size:11px;font-weight:950}
+        .footerCountry{display:flex;flex-direction:column;gap:12px;padding:30px 0;border-bottom:1px solid #484848}
+        .footerCountry label{font-size:11px;font-weight:800;letter-spacing:1.5px}
+        .footerCountry select{width:fit-content;min-width:220px;padding:14px 40px 14px 15px;background:#fff;color:#111;border:1px solid #fff;border-radius:0;font-size:13px}
+        .footerBottom{display:flex;justify-content:space-between;flex-wrap:wrap;gap:15px;padding-top:22px;color:#999;font-size:10px;letter-spacing:1px;line-height:1.7}
+        .footerBottom p{margin:0}
+        .modalBackdrop,.drawerBackdrop{position:fixed;inset:0;z-index:50;display:flex;justify-content:center;align-items:center;padding:18px;background:rgba(0,0,0,.78);overflow-y:auto}
+        .productModal{position:relative;width:100%;max-width:900px;max-height:92vh;overflow-y:auto;display:grid;grid-template-columns:1fr 1fr;background:#f5f5f2;color:#111}
+        .modalClose{position:absolute;z-index:2;top:12px;right:12px;width:40px;height:40px;border:0;border-radius:50%;background:#fff;color:#111;cursor:pointer}
+        .modalImage{min-height:420px;background:#e6e6e3}
+        .modalImage img{width:100%;height:100%;min-height:420px;object-fit:cover}
+        .modalDetails{display:flex;flex-direction:column;justify-content:center;gap:18px;padding:clamp(22px,4vw,44px)}
+        .modalDetails h2{font-size:clamp(26px,4vw,39px);line-height:1.05;margin:0}
+        .modalPrice{font-size:19px}
+        .modalDescription{color:#666;font-size:13px;line-height:1.7;white-space:pre-wrap}
+        .variantLabel{display:flex;flex-direction:column;gap:8px;font-size:10px;font-weight:800;letter-spacing:1.5px}
+        .variantLabel select{width:100%;padding:13px;border:1px solid #ccc;background:#fff;color:#111;font-size:14px}
+        .stockText{font-size:11px;letter-spacing:.7px}
+        .inStock{color:#397348}.outStock{color:#b3261e}
+        .modalPrimary,.modalSecondary{width:100%;padding:16px;font-size:11px;font-weight:900;letter-spacing:1.4px;cursor:pointer}
+        .modalPrimary{background:#111;color:#fff;border:1px solid #111}
+        .modalSecondary{background:transparent;color:#111;border:1px solid #111}
+        .modalPrimary:disabled,.modalSecondary:disabled{opacity:.4;cursor:not-allowed}
+        .deliveryNote{text-align:center;color:#777;font-size:10px;letter-spacing:1px}
+        .drawerBackdrop{justify-content:flex-start;align-items:stretch;padding:0}
+        .drawer{width:min(420px,90vw);height:100%;overflow-y:auto;padding:24px;background:#0b0b0b;color:#fff;box-shadow:10px 0 35px rgba(0,0,0,.35)}
+        .bagDrawer{margin-left:auto;box-shadow:-10px 0 35px rgba(0,0,0,.35)}
+        .drawerHeader{display:flex;align-items:center;justify-content:space-between;gap:15px;padding-bottom:22px;border-bottom:1px solid #333}
+        .drawerHeader h2{font-size:17px;letter-spacing:1px}
+        .drawerGroup{border-bottom:1px solid #292929}
+        .drawerGroup>button{display:flex;align-items:center;justify-content:space-between;width:100%;padding:19px 0;background:transparent;border:0;color:#fff;font-size:13px;font-weight:900;letter-spacing:1.5px;cursor:pointer}
+        .bagLines{padding:20px 0}
+        .bagLine{display:flex;gap:14px;padding:15px 0;border-bottom:1px solid #292929}
+        .bagLine img,.bagNoImage{width:90px;height:110px;object-fit:cover;background:#252525}
+        .bagNoImage{display:grid;place-items:center;font-size:10px;font-weight:900}
+        .bagLineDetails{display:flex;flex-direction:column;align-items:flex-start;gap:7px;font-size:11px}
+        .bagLineDetails span{color:#aaa}
+        .bagLineDetails button{padding:0;margin-top:4px;border:0;background:transparent;color:#fff;text-decoration:underline;font-size:9px;cursor:pointer}
+        .bagSummary{position:sticky;bottom:0;padding:18px 0;background:#0b0b0b;border-top:1px solid #333}
+        .bagSummary>div{display:flex;justify-content:space-between;font-size:13px}
+        .bagSummary p,.emptyBag p{color:#999;font-size:11px;line-height:1.6}
+        .checkoutButton{width:100%;padding:16px;border:0;background:#fff;color:#000;font-size:11px;font-weight:900;letter-spacing:1px;cursor:pointer}
+        .checkoutButton:disabled{opacity:.5}
+        .emptyBag{min-height:65vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center}
+        .emptyBag h3{font-size:14px;letter-spacing:1px}
+        @media(max-width:760px){
+          .header{height:62px;padding:0 13px}
+          .logo{font-size:19px}
+          .headerRight{gap:3px}
+          .headerRight .headerIcon{padding:7px}
+          .genderNav{padding:10px 12px}
+          .genderRow button{min-height:48px;font-size:15px}
+          .electronicsNav{min-height:48px;font-size:14px}
+          .hero{height:590px;min-height:590px;max-height:none}
+          .heroImage{background-position:60% center}
+          .heroOverlay{background:linear-gradient(90deg,rgba(0,0,0,.76),rgba(0,0,0,.12)),linear-gradient(0deg,rgba(0,0,0,.5),transparent 35%)}
+          .heroContent{padding:30px 22px}
+          .heroContent h1{font-size:clamp(67px,17vw,95px);letter-spacing:-4px}
+          .heroSub{font-size:9px;letter-spacing:1.4px}
+          .heroBottom{left:20px;right:20px;bottom:20px}
+          .heroCollection{display:none}
+          .featured,.shopSection{padding:38px 15px}
+          .sectionHeading{align-items:end;margin-bottom:20px}
+          .sectionHeading h2{font-size:clamp(22px,6vw,30px)}
+          .viewAll{font-size:9px;gap:5px}
+          .featuredGrid,.shopGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:22px 12px}
+          .featuredInfo span,.shopInfo span{font-size:11px}
+          .featuredInfo b,.shopInfo b{font-size:11px}
+          .saveButton{top:7px;right:7px;width:31px;height:31px}
+          .shopFilters{gap:16px}
+          .productModal{grid-template-columns:1fr;max-width:480px}
+          .modalImage,.modalImage img{min-height:260px;max-height:42vh}
+          .modalDetails{gap:13px;padding:22px}
+          .modalDetails h2{font-size:27px}
+          .footer{padding:35px 18px 18px}
+          .footerLogo{font-size:25px}
+          .footerAccordion summary{font-size:16px;padding:23px 0}
+          .footerAccordionContent a{font-size:13px}
+          .footerPayments{gap:8px;padding:25px 0}
+          .paymentLogo{height:29px;min-width:43px;font-size:10px;padding:4px 7px}
+          .footerCountry select{width:100%;max-width:300px}
+          .footerBottom{flex-direction:column;gap:8px}
+        }
+        @media(min-width:761px) and (max-width:1050px){
+          .featuredGrid,.shopGrid{grid-template-columns:repeat(3,minmax(0,1fr))}
         }
       `}</style>
     </main>
