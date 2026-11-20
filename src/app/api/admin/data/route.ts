@@ -108,16 +108,33 @@ export async function POST(req: Request) {
         );
       }
 
+      if (
+        b.variants.some(
+          (v: any) => !["UK", "China"].includes(String(v.delivery || "UK"))
+        )
+      ) {
+        return NextResponse.json(
+          { error: "Delivery must be UK or China." },
+          { status: 400 }
+        );
+      }
+
       const variants = b.variants.map((v: any) => ({
         size: String(v.size || "").trim() || null,
         colour: String(v.colour || "").trim() || null,
+        delivery: ["UK", "China"].includes(String(v.delivery))
+          ? String(v.delivery)
+          : "UK",
         pricePence: Math.round(Number(v.price) * 100),
         stock: Math.max(0, Math.floor(Number(v.stock) || 0))
       }));
 
-      if (variants.some((v: any) =>
-        !Number.isFinite(v.pricePence) || v.pricePence < 0
-      )) {
+      if (
+        variants.some(
+          (v: any) =>
+            !Number.isFinite(v.pricePence) || v.pricePence < 0
+        )
+      ) {
         return NextResponse.json(
           { error: "Please enter valid variant prices." },
           { status: 400 }
