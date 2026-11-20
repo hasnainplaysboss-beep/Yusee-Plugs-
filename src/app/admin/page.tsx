@@ -145,11 +145,18 @@ export default function Admin() {
 
   function editProduct(product: any) {
     const parts = String(product.category || "").split(" / ");
+    const productType = parts[0];
+
+    const selectedType =
+      productType === "Women" ||
+      productType === "Electronics"
+        ? productType
+        : "Men";
 
     setF({
       name: product.name || "",
-      gender: parts[0] === "Women" ? "Women" : "Men",
-      category: parts.length > 1 ? parts.slice(1).join(" / ") : parts[0],
+      gender: selectedType,
+      category: parts.length > 1 ? parts.slice(1).join(" / ") : "",
       description: product.description || "",
       imageUrl: product.imageUrl || "",
       featured: product.featured === true
@@ -248,7 +255,11 @@ export default function Admin() {
 
       if (saved) {
         resetProductForm();
-        alert(wasEditing ? "Product updated successfully." : "Product saved successfully.");
+        alert(
+          wasEditing
+            ? "Product updated successfully."
+            : "Product saved successfully."
+        );
       }
     } catch (error) {
       console.error(error);
@@ -371,18 +382,25 @@ export default function Admin() {
                   required
                 />
 
-                <label>Gender</label>
+                <label>Product type</label>
                 <select
                   value={f.gender}
-                  onChange={e => setF({ ...f, gender: e.target.value })}
+                  onChange={e =>
+                    setF({ ...f, gender: e.target.value })
+                  }
                 >
                   <option value="Men">Men</option>
                   <option value="Women">Women</option>
+                  <option value="Electronics">Electronics</option>
                 </select>
 
                 <label>Category</label>
                 <input
-                  placeholder="e.g. Hoodies & jumpers, Shoes, Leggings"
+                  placeholder={
+                    f.gender === "Electronics"
+                      ? "e.g. Phones, Accessories, Audio"
+                      : "e.g. Hoodies & jumpers, Shoes, Leggings"
+                  }
                   value={f.category}
                   onChange={e => setF({ ...f, category: e.target.value })}
                   required
