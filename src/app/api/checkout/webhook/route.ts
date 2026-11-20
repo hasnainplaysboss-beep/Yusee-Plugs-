@@ -16,7 +16,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Initialise Stripe only when the checkout request runs.
     const stripe = new Stripe(stripeKey);
 
     const body = await req.json();
@@ -29,7 +28,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Combine duplicate variants.
     const quantities = new Map<string, number>();
 
     for (const item of items) {
@@ -69,7 +67,41 @@ export async function POST(req: Request) {
       );
     }
 
-    let subtotal = 0;
+    // Determine the delivery destination from the selected variants.
+    // Older variants without a delivery value default to UK.
+    const deliveries = new Set(
+      variants.map((variant) =>
+        String(variant.delivery || "UK").trim().toLowerCase()
+      )
+    );
+
+    if (deliveries.size !== 1) {
+      return NextResponse.json(
+        {
+          error:
+            "Your basket cannot mix UK and China delivery variants. Please use one delivery option per basket."
+        },
+        { status: 400 }
+      );
+    }
+
+    const delivery = [...deliveries][0];
+
+    let shippingCountry: "GB" | "CN";
+    let deliveryName: string;
+
+    if (delivery === "uk" || delivery === "gb") {
+      shippingCountry = "GB";
+      deliveryName = "UK";
+    } else if (delivery === "china" || delivery === "cn") {
+      shippingCountry = "CN";
+      deliveryName = "China";
+    } else {
+      return NextResponse.json(
+        { error: "Invalid delivery option." },
+        { status: 400 }
+      );
+    }
 
     const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] =
       variants.map((variant) => {
@@ -81,11 +113,10 @@ export async function POST(req: Request) {
           );
         }
 
-        subtotal += variant.pricePence * quantity;
-
         const options = [
           variant.size ? `Size: ${variant.size}` : null,
-          variant.colour ? `Colour: ${variant.colour}` : null
+          variant.colour ? `Colour: ${variant.colour}` : null,
+          `Delivery: ${deliveryName}`
         ].filter(Boolean);
 
         return {
@@ -95,38 +126,15 @@ export async function POST(req: Request) {
             unit_amount: variant.pricePence,
             product_data: {
               name: variant.product.name,
-              description: options.join(" / ") || undefined,
+              description: options.join(" / "),
               metadata: {
-                variantId: variant.id
+                variantId: variant.id,
+                delivery: deliveryName
               }
             }
           }
         };
       });
-
-    const shippingOption:
-      Stripe.Checkout.SessionCreateParams.ShippingOption =
-      subtotal >= 10000
-        ? {
-            shipping_rate_data: {
-              type: "fixed_amount",
-              fixed_amount: {
-                amount: 0,
-                currency: "gbp"
-              },
-              display_name: "Free UK delivery"
-            }
-          }
-        : {
-            shipping_rate_data: {
-              type: "fixed_amount",
-              fixed_amount: {
-                amount: 499,
-                currency: "gbp"
-              },
-              display_name: "UK delivery"
-            }
-          };
 
     const origin =
       process.env.NEXT_PUBLIC_SITE_URL ||
@@ -137,16 +145,16 @@ export async function POST(req: Request) {
       line_items: lineItems,
       billing_address_collection: "required",
       shipping_address_collection: {
-        allowed_countries: ["GB"]
+        allowed_countries: [shippingCountry]
       },
       phone_number_collection: {
         enabled: true
       },
-      shipping_options: [shippingOption],
       success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/?checkout=cancelled`,
       metadata: {
-        store: "yusee-plugs"
+        store: "yusee-plugs",
+        delivery: deliveryName
       }
     });
 
