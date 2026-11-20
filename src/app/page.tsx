@@ -1372,58 +1372,59 @@ export default function Home()  {
         }
 
         .footerColumns {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 25px;
-          padding: 25px 0 40px;
-          border-top: 1px solid #292929;
-        }
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 25px;
+  padding: 25px 0 30px;
+  border-top: 1px solid #292929;
+}
 
-        .footerColumns div {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-start;
-          gap: 12px;
-          min-width: 0;
-        }
+.footerColumns div {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
 
-        .footerColumns b {
-          color: #fff;
-          font-weight: 800 !important;
-          letter-spacing: 1.5px;
-          margin-bottom: 5px;
-        }
+.footerColumns b {
+  color: #fff;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  letter-spacing: 1.5px;
+  margin-bottom: 5px;
+}
 
-        .footerColumns a,
-        .footerColumns button {
-          padding: 0 !important;
-          color: #999 !important;
-          background: transparent !important;
-          border: 0 !important;
-          text-decoration: none !important;
-          font-size: 10px !important;
-          line-height: 1.5 !important;
-          font-weight: 400 !important;
-          letter-spacing: 0 !important;
-          cursor: pointer;
-          text-align: left;
-        }
+.footerColumns a,
+.footerColumns button {
+  padding: 0 !important;
+  color: #999 !important;
+  background: transparent !important;
+  border: 0 !important;
+  text-decoration: none !important;
+  font-size: 10px !important;
+  line-height: 1.5 !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.5px !important;
+  cursor: pointer;
+  text-align: left;
+}
 
-        .footerColumns a:hover,
-        .footerColumns button:hover {
-          color: #fff !important;
-        }
+.footerColumns a:hover,
+.footerColumns button:hover {
+  color: #fff !important;
+}
 
-        .footerBottom {
-          padding-top: 17px;
-          border-top: 1px solid #292929;
-          display: flex;
-          justify-content: space-between;
-          gap: 15px;
-          color: #777;
-          letter-spacing: .8px;
-        }
-
+.footerBottom {
+  padding-top: 17px;
+  border-top: 1px solid #292929;
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  color: #777;
+  letter-spacing: .8px;
+  font-size: 10px !important;
+}
         .modalBackdrop,
         .drawerBackdrop {
           position: fixed;
