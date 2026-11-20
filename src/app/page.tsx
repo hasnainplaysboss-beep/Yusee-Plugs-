@@ -766,6 +766,18 @@ export default function Home() {
             <div className="drawerGroup">
               <button onClick={() => selectGender("women")}>WOMENS</button>
             </div>
+            <div className="drawerGroup">
+  <button
+    onClick={() => {
+      setActive("Electronics");
+      setQuery("");
+      setMenuOpen(false);
+      document.getElementById("shop")?.scrollIntoView({ behavior: "smooth" });
+    }}
+  >
+    ELECTRONICS
+  </button>
+</div>
           </aside>
         </div>
       )}
