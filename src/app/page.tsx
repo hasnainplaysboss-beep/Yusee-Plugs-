@@ -16,6 +16,7 @@ type Variant = {
   id: string;
   size: string | null;
   colour: string | null;
+  delivery: string | null;
   pricePence: number;
   stock: number;
 };
@@ -210,7 +211,11 @@ export default function Home() {
 
     const match =
       product.variants.find(
-        v => v.size === size && v.colour === current?.colour && v.stock > 0
+        v =>
+          v.size === size &&
+          v.colour === current?.colour &&
+          v.delivery === current?.delivery &&
+          v.stock > 0
       ) ||
       product.variants.find(v => v.size === size && v.stock > 0) ||
       product.variants.find(v => v.size === size);
@@ -225,10 +230,33 @@ export default function Home() {
 
     const match =
       product.variants.find(
-        v => v.colour === colour && v.size === current?.size && v.stock > 0
+        v =>
+          v.colour === colour &&
+          v.size === current?.size &&
+          v.delivery === current?.delivery &&
+          v.stock > 0
       ) ||
       product.variants.find(v => v.colour === colour && v.stock > 0) ||
       product.variants.find(v => v.colour === colour);
+
+    if (match) {
+      setSelectedVariants(old => ({ ...old, [product.id]: match.id }));
+    }
+  }
+
+  function changeDelivery(product: Product, delivery: string) {
+    const current = getSelectedVariant(product);
+
+    const match =
+      product.variants.find(
+        v =>
+          v.delivery === delivery &&
+          v.size === current?.size &&
+          v.colour === current?.colour &&
+          v.stock > 0
+      ) ||
+      product.variants.find(v => v.delivery === delivery && v.stock > 0) ||
+      product.variants.find(v => v.delivery === delivery);
 
     if (match) {
       setSelectedVariants(old => ({ ...old, [product.id]: match.id }));
@@ -311,6 +339,12 @@ export default function Home() {
   const modalColours = selectedProduct
     ? Array.from(
         new Set(selectedProduct.variants.map(v => v.colour).filter(Boolean))
+      ) as string[]
+    : [];
+
+  const modalDeliveries = selectedProduct
+    ? Array.from(
+        new Set(selectedProduct.variants.map(v => v.delivery).filter(Boolean))
       ) as string[]
     : [];
 
@@ -744,6 +778,27 @@ export default function Home() {
                 </label>
               )}
 
+              {modalDeliveries.length > 0 && (
+                <label className="variantLabel">
+                  DELIVERY
+                  <select
+                    value={modalVariant?.delivery || ""}
+                    onChange={e => changeDelivery(selectedProduct, e.target.value)}
+                  >
+                    {modalDeliveries.map(delivery => (
+                      <option key={delivery} value={delivery}>
+                        {delivery}
+                        {!selectedProduct.variants.some(
+                          v => v.delivery === delivery && v.stock > 0
+                        )
+                          ? " — SOLD OUT"
+                          : ""}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+
               <p className={`stockText ${modalVariant?.stock ? "inStock" : "outStock"}`}>
                 {modalVariant
                   ? modalVariant.stock > 0
@@ -771,7 +826,11 @@ export default function Home() {
                 {checkoutLoading ? "CONNECTING..." : "BUY NOW"}
               </button>
 
-              <p className="deliveryNote">UK DELIVERY AVAILABLE</p>
+              <p className="deliveryNote">
+                {modalVariant?.delivery
+                  ? `${modalVariant.delivery.toUpperCase()} DELIVERY AVAILABLE`
+                  : "DELIVERY AVAILABLE"}
+              </p>
             </div>
           </section>
         </div>
@@ -844,6 +903,9 @@ export default function Home() {
                         <b>{item.product.name}</b>
                         {item.variant.size && <span>Size: {item.variant.size}</span>}
                         {item.variant.colour && <span>Colour: {item.variant.colour}</span>}
+                        {item.variant.delivery && (
+                          <span>Delivery: {item.variant.delivery}</span>
+                        )}
                         <span>
                           £{(item.variant.pricePence / 100).toFixed(2)} × {item.quantity}
                         </span>
