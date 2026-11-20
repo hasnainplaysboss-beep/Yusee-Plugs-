@@ -520,6 +520,13 @@ export default function Home() {
           </button>
           {query && <span>SEARCH: {query}</span>}
         </div>
+        <button
+  className={active === "Electronics" ? "selectedFilter" : ""}
+  onClick={() => setActive("Electronics")}
+>
+  ELECTRONICS
+</button>
+
 
         {productsLoading ? (
           <p className="statusMessage">LOADING PRODUCTS...</p>
