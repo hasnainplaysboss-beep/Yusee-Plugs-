@@ -367,6 +367,11 @@ export default function Home() {
 
   return (
     <main className="site">
+      <div className="announcement">
+        <span>PLUG IN. STAND OUT.</span>
+        <span>DISCOVER THE COLLECTION</span>
+      </div>
+
       <header className="header">
         <button
           className="headerIcon menuIcon"
@@ -480,19 +485,13 @@ export default function Home() {
         <Link href="/shop">ALL PRODUCTS</Link>
       </nav>
 
-      {/* FULL-WIDTH HOMEPAGE BANNER */}
+      {/* BANNER: the image contains the SHOP NOW button */}
       <section className="hero">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          className="heroBannerImage"
-          src="/FA104F8F-BE6B-4BFC-AEF4-8408AD0A4D6D.png"
-          alt="Yusee Plugs — Plug In. Stand Out."
-        />
-
+        <div className="heroImage" />
         <Link
-          className="heroShopHotspot"
           href="/shop"
-          aria-label="Shop now"
+          className="heroShopNowLink"
+          aria-label="Shop all products"
         />
       </section>
 
@@ -897,10 +896,6 @@ export default function Home() {
       )}
 
       <style jsx>{`
-        * {
-          box-sizing: border-box;
-        }
-
         .site {
           min-height: 100vh;
           background: #000;
@@ -910,6 +905,20 @@ export default function Home() {
 
         button {
           font: inherit;
+        }
+
+        .announcement {
+          height: 29px;
+          background: #000;
+          color: #fff;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0 4%;
+          font-size: 9px;
+          font-weight: 950;
+          letter-spacing: 1.5px;
+          border-bottom: 1px solid #292929;
         }
 
         .header {
@@ -1007,10 +1016,10 @@ export default function Home() {
         .searchPanel {
           position: absolute;
           z-index: 20;
-          top: 125px;
+          top: 154px;
           left: 0;
           right: 0;
-          background: #000;
+          background: #080808;
           border-bottom: 1px solid #383838;
           padding: 18px 4%;
           box-shadow: 0 15px 25px rgba(0,0,0,.35);
@@ -1100,41 +1109,39 @@ export default function Home() {
           letter-spacing: 1px;
         }
 
-        /* FULL-WIDTH BANNER IMAGE */
+        /* FULL-WIDTH BANNER WITH CLICKABLE SHOP NOW BUTTON */
 
         .hero {
-          position: relative;
-          display: block;
           width: 100%;
-          height: auto;
-          min-height: 0;
-          max-height: none;
-          padding: 0;
-          margin: 0;
+          aspect-ratio: 16 / 9;
+          position: relative;
           overflow: hidden;
           background: #000;
-          line-height: 0;
         }
 
-        .heroBannerImage {
-          display: block;
-          width: 100%;
-          height: auto;
-          object-fit: contain;
+        .heroImage {
+          position: absolute;
+          inset: 0;
+          background-image: url("/FA104F8F-BE6B-4BFC-AEF4-8408AD0A4D6D.png");
+          background-size: contain;
+          background-position: center;
+          background-repeat: no-repeat;
+          background-color: #000;
         }
 
-        /* Invisible clickable link placed over the SHOP NOW button in the image */
-
-        .heroShopHotspot {
+        .heroShopNowLink {
           position: absolute;
           left: 64%;
-          top: 68%;
-          width: 22.2%;
-          height: 9%;
-          display: block;
-          background: transparent;
-          cursor: pointer;
+          top: 59%;
+          width: 22%;
+          height: 8%;
           z-index: 2;
+          cursor: pointer;
+        }
+
+        .heroShopNowLink:focus-visible {
+          outline: 2px solid #fff;
+          outline-offset: 3px;
         }
 
         .featured {
@@ -1198,7 +1205,7 @@ export default function Home() {
           padding: 0;
           overflow: hidden;
           border: 0;
-          background: #242424;
+          background: #171717;
           cursor: pointer;
           text-align: center;
         }
@@ -1236,7 +1243,7 @@ export default function Home() {
           display: grid;
           place-items: center;
           border: 0;
-          background: rgba(0,0,0,.35);
+          background: rgba(0,0,0,.5);
           color: white;
           cursor: pointer;
         }
@@ -1655,11 +1662,11 @@ export default function Home() {
         }
 
         .inStock {
-          color: #111;
+          color: #333;
         }
 
         .outStock {
-          color: #b3261e;
+          color: #777;
         }
 
         .modalPrimary,
@@ -1708,7 +1715,7 @@ export default function Home() {
           height: 100%;
           overflow-y: auto;
           padding: 24px;
-          background: #000;
+          background: #050505;
           color: #fff;
           box-shadow: 10px 0 35px rgba(0,0,0,.35);
         }
@@ -1853,7 +1860,7 @@ export default function Home() {
           position: sticky;
           bottom: 0;
           padding: 18px 0;
-          background: #000;
+          background: #050505;
           border-top: 1px solid #333;
         }
 
@@ -1902,6 +1909,12 @@ export default function Home() {
         }
 
         @media (max-width: 760px) {
+          .announcement {
+            padding: 0 13px;
+            font-size: 8px;
+            letter-spacing: 1px;
+          }
+
           .header {
             height: 65px;
             padding: 0 13px;
@@ -1934,30 +1947,19 @@ export default function Home() {
           }
 
           .searchPanel {
-            top: 108px;
+            top: 137px;
             padding: 14px;
           }
 
           .hero {
-            width: 100%;
-            height: auto;
-            min-height: 0;
-            max-height: none;
-            overflow: hidden;
+            aspect-ratio: 16 / 9;
           }
 
-          .heroBannerImage {
-            display: block;
-            width: 100%;
-            height: auto;
-            object-fit: contain;
-          }
-
-          .heroShopHotspot {
+          .heroShopNowLink {
             left: 64%;
-            top: 68%;
-            width: 22.2%;
-            height: 9%;
+            top: 59%;
+            width: 22%;
+            height: 8%;
           }
 
           .featured {
