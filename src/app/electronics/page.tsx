@@ -2,6 +2,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import {
+  House,
+  ShoppingBag,
+  UserRound,
+  X,
+} from "lucide-react";
 
 type Variant = {
   id: string;
@@ -28,23 +36,43 @@ type BagItem = {
   quantity: number;
 };
 
+function normaliseDelivery(delivery: string | null | undefined) {
+  const value = (delivery || "UK").trim().toLowerCase();
+
+  if (value === "uk" || value === "gb" || value.includes("united kingdom")) {
+    return "uk";
+  }
+
+  if (value === "cn" || value === "china") {
+    return "china";
+  }
+
+  return value;
+}
+
 const money = (pence: number) => `£${(pence / 100).toFixed(2)}`;
 
 export default function ElectronicsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
   const [search, setSearch] = useState("");
   const [colour, setColour] = useState("all");
   const [maxPrice, setMaxPrice] = useState("all");
   const [sort, setSort] = useState("newest");
+
   const [selected, setSelected] = useState<Product | null>(null);
   const [selectedVariant, setSelectedVariant] = useState("");
   const [message, setMessage] = useState("");
+
   const [bag, setBag] = useState<BagItem[]>([]);
   const [bagReady, setBagReady] = useState(false);
   const [bagOpen, setBagOpen] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [customerSignedIn, setCustomerSignedIn] = useState(false);
 
+  // Load electronics
   useEffect(() => {
     async function loadProducts() {
       try {
@@ -52,9 +80,12 @@ export default function ElectronicsPage() {
           cache: "no-store",
         });
 
-        if (!response.ok) throw new Error("Could not load products.");
-
         const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Could not load products.");
+        }
+
         const allProducts: Product[] = Array.isArray(data)
           ? data
           : data.products || [];
@@ -80,32 +111,72 @@ export default function ElectronicsPage() {
     loadProducts();
   }, []);
 
+  // Load the same saved bag used by the homepage
   useEffect(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem("yusee_bag") || "[]");
-      setBag(Array.isArray(saved) ? saved : []);
-    } catch {
-      setBag([]);
-    }
-    setBagReady(true);
+      const stored = localStorage.getItem("yusee_bag");
 
-    const syncBag = () => {
+      if (stored) {
+        const parsed = JSON.parse(stored);
+
+        if (Array.isArray(parsed)) {
+          setBag(parsed);
+        }
+      }
+    } catch {
+      localStorage.removeItem("yusee_bag");
+    } finally {
+      setBagReady(true);
+    }
+  }, []);
+
+  // Keep the saved bag updated
+  useEffect(() => {
+    if (bagReady) {
+      localStorage.setItem("yusee_bag", JSON.stringify(bag));
+    }
+  }, [bag, bagReady]);
+
+  // Keep the bag in sync if it changes in another browser tab
+  useEffect(() => {
+    function syncBag() {
       try {
-        const saved = JSON.parse(localStorage.getItem("yusee_bag") || "[]");
-        setBag(Array.isArray(saved) ? saved : []);
+        const stored = localStorage.getItem("yusee_bag");
+        const parsed = stored ? JSON.parse(stored) : [];
+
+        if (Array.isArray(parsed)) {
+          setBag(parsed);
+        }
       } catch {
         setBag([]);
       }
-    };
+    }
 
     window.addEventListener("storage", syncBag);
+
     return () => window.removeEventListener("storage", syncBag);
   }, []);
 
+  // Check customer sign-in
   useEffect(() => {
-    if (!bagReady) return;
-    localStorage.setItem("yusee_bag", JSON.stringify(bag));
-  }, [bag, bagReady]);
+    async function checkAuth() {
+      try {
+        const response = await fetch("/api/auth/me", {
+          cache: "no-store",
+        });
+
+        const data = response.ok
+          ? await response.json()
+          : { signedIn: false };
+
+        setCustomerSignedIn(data.signedIn === true);
+      } catch {
+        setCustomerSignedIn(false);
+      }
+    }
+
+    checkAuth();
+  }, []);
 
   const colours = useMemo(() => {
     const values = products.flatMap((product) =>
@@ -143,20 +214,26 @@ export default function ElectronicsPage() {
       const matchesPrice =
         maxPrice === "all" || cheapest <= Number(maxPrice) * 100;
 
-      return matchesSearch && matchesColour && matchesPrice && available.length > 0;
+      return (
+        matchesSearch &&
+        matchesColour &&
+        matchesPrice &&
+        available.length > 0
+      );
     });
 
-    if (sort === "price-low" || sort === "price-high") {
-      result = [...result].sort((a, b) => {
-        const priceA = Math.min(
-          ...a.variants.filter((v) => v.stock > 0).map((v) => v.pricePence)
-        );
-        const priceB = Math.min(
-          ...b.variants.filter((v) => v.stock > 0).map((v) => v.pricePence)
-        );
-
-        return sort === "price-low" ? priceA - priceB : priceB - priceA;
-      });
+    if (sort === "price-low") {
+      result = [...result].sort(
+        (a, b) =>
+          Math.min(...a.variants.map((v) => v.pricePence)) -
+          Math.min(...b.variants.map((v) => v.pricePence))
+      );
+    } else if (sort === "price-high") {
+      result = [...result].sort(
+        (a, b) =>
+          Math.min(...b.variants.map((v) => v.pricePence)) -
+          Math.min(...a.variants.map((v) => v.pricePence))
+      );
     } else {
       result = [...result].sort(
         (a, b) =>
@@ -168,35 +245,13 @@ export default function ElectronicsPage() {
     return result;
   }, [products, search, colour, maxPrice, sort]);
 
-  const bagProducts = useMemo(() => {
-    return bag.flatMap((item) => {
-      for (const product of products) {
-        const variant = product.variants.find(
-          (entry) => entry.id === item.variantId
-        );
-
-        if (variant) return [{ product, variant, quantity: item.quantity }];
-      }
-
-      return [];
-    });
-  }, [bag, products]);
-
-  const bagCount = bag.reduce((total, item) => total + item.quantity, 0);
-  const bagTotal = bagProducts.reduce(
-    (total, item) => total + item.variant.pricePence * item.quantity,
-    0
-  );
-
-  function saveBag(updated: BagItem[]) {
-    setBag(updated);
-    localStorage.setItem("yusee_bag", JSON.stringify(updated));
-    window.dispatchEvent(new Event("storage"));
-  }
-
   function openProduct(product: Product) {
     setSelected(product);
-    const firstAvailable = product.variants.find((variant) => variant.stock > 0);
+
+    const firstAvailable = product.variants.find(
+      (variant) => variant.stock > 0
+    );
+
     setSelectedVariant(firstAvailable?.id || "");
     setMessage("");
   }
@@ -209,97 +264,192 @@ export default function ElectronicsPage() {
       return;
     }
 
-    const currentQuantity =
-      bag.find((item) => item.variantId === variantId)?.quantity || 0;
+    const selectedDelivery = normaliseDelivery(variant.delivery);
 
-    if (currentQuantity >= variant.stock) {
-      setMessage("Sorry, there isn't enough stock available.");
+    const existingDeliveries = bag
+      .map((line) => {
+        const existingVariant = products
+          .flatMap((item) => item.variants)
+          .find((item) => item.id === line.variantId);
+
+        return existingVariant
+          ? normaliseDelivery(existingVariant.delivery)
+          : null;
+      })
+      .filter(Boolean);
+
+    if (
+      existingDeliveries.some(
+        (delivery) => delivery !== selectedDelivery
+      )
+    ) {
+      setMessage(
+        "Your bag already contains a different delivery type. Please checkout or remove those items before adding this product."
+      );
       return;
     }
 
-    const updated = bag.some((item) => item.variantId === variantId)
-      ? bag.map((item) =>
-          item.variantId === variantId
+    setBag((old) => {
+      const existing = old.find((item) => item.variantId === variant.id);
+
+      if (existing) {
+        return old.map((item) =>
+          item.variantId === variant.id
             ? { ...item, quantity: item.quantity + 1 }
             : item
-        )
-      : [...bag, { variantId, quantity: 1 }];
+        );
+      }
 
-    saveBag(updated);
-    setMessage("Added to your bag!");
+      return [...old, { variantId: variant.id, quantity: 1 }];
+    });
+
+    setSelected(null);
+    setMessage("");
+    setBagOpen(true);
   }
 
-  function changeQuantity(variantId: string, change: number) {
-    const product = products.find((item) =>
-      item.variants.some((variant) => variant.id === variantId)
+  async function startCheckout(items: BagItem[]) {
+    if (!items.length) return;
+
+    const deliveries = new Set(
+      items.map((item) => {
+        const variant = products
+          .flatMap((product) => product.variants)
+          .find((variant) => variant.id === item.variantId);
+
+        return normaliseDelivery(variant?.delivery);
+      })
     );
-    const variant = product?.variants.find((item) => item.id === variantId);
-    const current = bag.find((item) => item.variantId === variantId);
 
-    if (!current) return;
-
-    const nextQuantity = current.quantity + change;
-
-    if (nextQuantity <= 0) {
-      saveBag(bag.filter((item) => item.variantId !== variantId));
+    if (deliveries.size > 1) {
+      alert(
+        "Your bag contains mixed delivery types. Please remove items until your bag contains only UK or China delivery."
+      );
       return;
     }
 
-    if (variant && nextQuantity > variant.stock) return;
+    setCheckoutLoading(true);
 
-    saveBag(
-      bag.map((item) =>
-        item.variantId === variantId
-          ? { ...item, quantity: nextQuantity }
-          : item
-      )
-    );
+    try {
+      const response = await fetch("/api/checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ items }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.url) {
+        throw new Error(data.error || "Could not start checkout.");
+      }
+
+      window.location.href = data.url;
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Could not start checkout."
+      );
+
+      setCheckoutLoading(false);
+    }
   }
 
+  const bagItems = bag
+    .map((line) => {
+      const product = products.find((item) =>
+        item.variants.some((variant) => variant.id === line.variantId)
+      );
+
+      const variant = product?.variants.find(
+        (item) => item.id === line.variantId
+      );
+
+      if (!product || !variant) return null;
+
+      return {
+        ...line,
+        product,
+        variant,
+      };
+    })
+    .filter(
+      (item): item is NonNullable<typeof item> => item !== null
+    );
+
+  const bagCount = bag.reduce(
+    (sum, item) => sum + item.quantity,
+    0
+  );
+
+  const total = bagItems.reduce(
+    (sum, item) => sum + item.variant.pricePence * item.quantity,
+    0
+  );
+
+  const modalVariant = selected?.variants.find(
+    (variant) => variant.id === selectedVariant
+  );
+
   return (
-    <main className="electronics-page">
+    <main className="accessories-page">
+      <div className="announcement">
+        <span>PLUG IN. STAND OUT.</span>
+        <span>DISCOVER THE COLLECTION</span>
+      </div>
+
       <header className="site-header">
-        <a className="brand" href="/">YUSEE PLUGS</a>
+        <div className="header-top">
+          <Link href="/" className="logo" aria-label="Yusee Plugs home">
+            <Image
+              src="/FAAEF0EE-B20E-425B-AC66-5DA42ADAF006.png"
+              alt="Yusee Plugs"
+              width={170}
+              height={65}
+              priority
+              className="logo-image"
+            />
+          </Link>
+
+          <div className="header-icons">
+            <Link href="/" aria-label="Home" title="Home">
+              <House size={23} strokeWidth={2} />
+            </Link>
+
+            <button
+              className="header-icon bag-icon"
+              aria-label="Open shopping bag"
+              title="Shopping bag"
+              onClick={() => setBagOpen(true)}
+            >
+              <ShoppingBag size={23} strokeWidth={2} />
+              <span className="bag-count">{bagCount}</span>
+            </button>
+
+            <Link
+              href={customerSignedIn ? "/account" : "/login"}
+              aria-label="My account"
+              title="My account"
+            >
+              <UserRound size={23} strokeWidth={2} />
+            </Link>
+          </div>
+        </div>
 
         <nav className="category-nav">
-          <a href="/mens">MEN</a>
-          <a href="/womens">WOMEN</a>
-          <a href="/electronics" className="active">ELECTRONICS</a>
-          <a href="/accessories">ACCESSORIES</a>
+          <Link href="/mens">MEN</Link>
+          <Link href="/womens">WOMEN</Link>
+          <Link href="/electronics" className="active">
+            ELECTRONICS
+          </Link>
+          <Link href="/accessories">ACCESSORIES</Link>
+          <Link href="/shop">ALL PRODUCTS</Link>
         </nav>
-
-        <div className="header-icons">
-          <a href="/" aria-label="Home" title="Home">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M3 10.5 12 3l9 7.5M5.5 9v11h13V9M9.5 20v-7h5v7" />
-            </svg>
-          </a>
-
-          <button
-            type="button"
-            onClick={() => setBagOpen(true)}
-            aria-label="Open shopping bag"
-            title="Shopping bag"
-            className="icon-button"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M5 8h14l1 13H4L5 8Z" />
-              <path d="M9 9V6a3 3 0 0 1 6 0v3" />
-            </svg>
-            {bagCount > 0 && <span className="bag-count">{bagCount}</span>}
-          </button>
-
-          <a href="/account" aria-label="Account" title="Account">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="12" cy="8" r="3.5" />
-              <path d="M4.5 21a7.5 7.5 0 0 1 15 0" />
-            </svg>
-          </a>
-        </div>
       </header>
 
       <section className="intro">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/10C02860-C206-4F1B-829F-DC2F8FA691B3.png"
           alt="Yusee Plugs Electronics Collection"
@@ -309,8 +459,11 @@ export default function ElectronicsPage() {
       <section className="catalogue">
         <div className="catalogue-heading">
           <div>
+            <p className="eyebrow">THE YUSEE COLLECTION</p>
             <h2>SHOP ELECTRONICS</h2>
-            <p>{filteredProducts.length} PRODUCTS</p>
+            <p className="product-count">
+              {filteredProducts.length} PRODUCTS
+            </p>
           </div>
         </div>
 
@@ -330,7 +483,9 @@ export default function ElectronicsPage() {
           >
             <option value="all">All colours</option>
             {colours.map((item) => (
-              <option key={item} value={item}>{item}</option>
+              <option key={item} value={item}>
+                {item}
+              </option>
             ))}
           </select>
 
@@ -359,7 +514,7 @@ export default function ElectronicsPage() {
         </div>
 
         {loading ? (
-          <p className="status">Loading electronics...</p>
+          <p className="status">LOADING ELECTRONICS...</p>
         ) : error ? (
           <p className="status">{error}</p>
         ) : filteredProducts.length === 0 ? (
@@ -370,7 +525,10 @@ export default function ElectronicsPage() {
         ) : (
           <div className="product-grid">
             {filteredProducts.map((product) => {
-              const available = product.variants.filter((variant) => variant.stock > 0);
+              const available = product.variants.filter(
+                (variant) => variant.stock > 0
+              );
+
               const startingPrice = Math.min(
                 ...available.map((variant) => variant.pricePence)
               );
@@ -387,6 +545,7 @@ export default function ElectronicsPage() {
                     ) : (
                       <span>YUSEE PLUGS</span>
                     )}
+
                     <span className="view-label">VIEW PRODUCT</span>
                   </div>
 
@@ -403,29 +562,43 @@ export default function ElectronicsPage() {
       </section>
 
       <footer className="footer">
-        <a href="/">YUSEE PLUGS</a>
+        <Link href="/" className="footer-brand">
+          YUSEE PLUGS
+        </Link>
         <p>PLUG IN. STAND OUT.</p>
+
         <div>
-          <a href="/mens">Men</a>
-          <a href="/womens">Women</a>
-          <a href="/electronics">Electronics</a>
-          <a href="/accessories">Accessories</a>
+          <Link href="/shop">ALL PRODUCTS</Link>
+          <Link href="/mens">MEN</Link>
+          <Link href="/womens">WOMEN</Link>
+          <Link href="/electronics">ELECTRONICS</Link>
+          <Link href="/accessories">ACCESSORIES</Link>
         </div>
-        <small>© {new Date().getFullYear()} Yusee Plugs. All rights reserved.</small>
+
+        <small>
+          © {new Date().getFullYear()} YUSEE PLUGS. ALL RIGHTS RESERVED.
+        </small>
       </footer>
 
+      {/* PRODUCT DETAILS */}
       {selected && (
-        <div className="modal-backdrop" onClick={() => setSelected(null)}>
+        <div
+          className="modal-backdrop"
+          onClick={() => setSelected(null)}
+        >
           <section
             className="product-modal"
             onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label={selected.name}
           >
             <button
               className="close-button"
               onClick={() => setSelected(null)}
               aria-label="Close product details"
             >
-              ×
+              <X />
             </button>
 
             <div className="modal-image">
@@ -439,15 +612,20 @@ export default function ElectronicsPage() {
             <div className="modal-info">
               <p className="eyebrow">YUSEE PLUGS</p>
               <h2>{selected.name}</h2>
-              <p className="description">
-                {selected.description || "Explore this product from Yusee Plugs."}
+
+              <p className="modal-description">
+                {selected.description ||
+                  "Explore this product from Yusee Plugs."}
               </p>
 
-              <label htmlFor="variant">Choose an option</label>
+              <label htmlFor="variant">CHOOSE AN OPTION</label>
+
               <select
                 id="variant"
                 value={selectedVariant}
-                onChange={(event) => setSelectedVariant(event.target.value)}
+                onChange={(event) =>
+                  setSelectedVariant(event.target.value)
+                }
               >
                 {selected.variants.map((variant) => (
                   <option
@@ -458,32 +636,40 @@ export default function ElectronicsPage() {
                     {[
                       variant.colour,
                       variant.size,
+                      variant.delivery,
                       money(variant.pricePence),
-                      variant.stock < 1 ? "Out of stock" : "",
-                    ].filter(Boolean).join(" · ")}
+                      variant.stock < 1 ? "SOLD OUT" : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </option>
                 ))}
               </select>
 
-              {selectedVariant && (
+              {modalVariant && (
                 <strong className="modal-price">
-                  {money(
-                    selected.variants.find(
-                      (variant) => variant.id === selectedVariant
-                    )?.pricePence || 0
-                  )}
+                  {money(modalVariant.pricePence)}
                 </strong>
               )}
 
+              <p
+                className={`stock-text ${
+                  modalVariant?.stock ? "in-stock" : "out-stock"
+                }`}
+              >
+                {modalVariant
+                  ? modalVariant.stock > 0
+                    ? `${modalVariant.stock} AVAILABLE`
+                    : "THIS OPTION IS SOLD OUT"
+                  : "NO OPTIONS AVAILABLE"}
+              </p>
+
               <button
                 className="add-button"
-                disabled={
-                  !selectedVariant ||
-                  (selected.variants.find(
-                    (variant) => variant.id === selectedVariant
-                  )?.stock || 0) < 1
+                disabled={!modalVariant || modalVariant.stock < 1}
+                onClick={() =>
+                  addToBag(selected, selectedVariant)
                 }
-                onClick={() => addToBag(selected, selectedVariant)}
               >
                 ADD TO BAG
               </button>
@@ -494,52 +680,83 @@ export default function ElectronicsPage() {
         </div>
       )}
 
+      {/* SHOPPING BAG DRAWER - SAME FUNCTIONALITY AS HOMEPAGE */}
       {bagOpen && (
-        <div className="drawer-backdrop" onClick={() => setBagOpen(false)}>
-          <aside className="bag-drawer" onClick={(event) => event.stopPropagation()}>
-            <div className="drawer-heading">
+        <div
+          className="drawer-backdrop"
+          onClick={() => setBagOpen(false)}
+        >
+          <aside
+            className="bag-drawer"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="drawer-header">
               <h2>YOUR BAG ({bagCount})</h2>
-              <button onClick={() => setBagOpen(false)} aria-label="Close bag">×</button>
+
+              <button
+                className="drawer-close"
+                aria-label="Close bag"
+                onClick={() => setBagOpen(false)}
+              >
+                <X />
+              </button>
             </div>
 
-            {bagProducts.length === 0 ? (
+            {bagItems.length === 0 ? (
               <div className="empty-bag">
-                <p>Your bag is currently empty.</p>
-                <button onClick={() => setBagOpen(false)}>CONTINUE SHOPPING</button>
+                <ShoppingBag size={36} />
+                <h3>YOUR BAG IS EMPTY</h3>
+                <p>Find your next favourite.</p>
+
+                <button
+                  className="checkout-button"
+                  onClick={() => setBagOpen(false)}
+                >
+                  CONTINUE SHOPPING
+                </button>
               </div>
             ) : (
               <>
-                <div className="bag-items">
-                  {bagProducts.map(({ product, variant, quantity }) => (
-                    <div className="bag-item" key={variant.id}>
-                      <div className="bag-item-image">
-                        {product.imageUrl && (
-                          <img src={product.imageUrl} alt={product.name} />
+                <div className="bag-lines">
+                  {bagItems.map((item) => (
+                    <div className="bag-line" key={item.variantId}>
+                      {item.product.imageUrl ? (
+                        <img
+                          src={item.product.imageUrl}
+                          alt={item.product.name}
+                        />
+                      ) : (
+                        <div className="bag-no-image">YUSEE</div>
+                      )}
+
+                      <div className="bag-line-details">
+                        <b>{item.product.name}</b>
+
+                        {item.variant.size && (
+                          <span>Size: {item.variant.size}</span>
                         )}
-                      </div>
 
-                      <div className="bag-item-info">
-                        <h3>{product.name}</h3>
-                        <p>
-                          {[variant.colour, variant.size].filter(Boolean).join(" · ")}
-                        </p>
-                        <strong>{money(variant.pricePence)}</strong>
+                        {item.variant.colour && (
+                          <span>Colour: {item.variant.colour}</span>
+                        )}
 
-                        <div className="quantity-controls">
-                          <button onClick={() => changeQuantity(variant.id, -1)} aria-label="Decrease quantity">−</button>
-                          <span>{quantity}</span>
-                          <button
-                            onClick={() => changeQuantity(variant.id, 1)}
-                            disabled={quantity >= variant.stock}
-                            aria-label="Increase quantity"
-                          >
-                            +
-                          </button>
-                        </div>
+                        {item.variant.delivery && (
+                          <span>Delivery: {item.variant.delivery}</span>
+                        )}
+
+                        <span>
+                          {money(item.variant.pricePence)} × {item.quantity}
+                        </span>
 
                         <button
-                          className="remove-item"
-                          onClick={() => saveBag(bag.filter((item) => item.variantId !== variant.id))}
+                          onClick={() =>
+                            setBag((old) =>
+                              old.filter(
+                                (line) =>
+                                  line.variantId !== item.variantId
+                              )
+                            )
+                          }
                         >
                           REMOVE
                         </button>
@@ -551,10 +768,30 @@ export default function ElectronicsPage() {
                 <div className="bag-summary">
                   <div className="subtotal">
                     <span>SUBTOTAL</span>
-                    <strong>{money(bagTotal)}</strong>
+                    <b>{money(total)}</b>
                   </div>
-                  <p>Delivery and any applicable charges are calculated at checkout.</p>
-                  <button onClick={() => setBagOpen(false)}>CONTINUE SHOPPING</button>
+
+                  <p>
+                    Delivery is included in the selected product price. Your
+                    delivery type is shown beside each item.
+                  </p>
+
+                  <button
+                    className="checkout-button"
+                    disabled={checkoutLoading}
+                    onClick={() =>
+                      startCheckout(
+                        bagItems.map((item) => ({
+                          variantId: item.variantId,
+                          quantity: item.quantity,
+                        }))
+                      )
+                    }
+                  >
+                    {checkoutLoading
+                      ? "CONNECTING TO STRIPE..."
+                      : "CHECKOUT"}
+                  </button>
                 </div>
               </>
             )}
@@ -563,103 +800,136 @@ export default function ElectronicsPage() {
       )}
 
       <style jsx>{`
-        * { box-sizing: border-box; }
+        * {
+          box-sizing: border-box;
+        }
 
-        .electronics-page {
+        .accessories-page {
           min-height: 100vh;
-          background: #f5f5f5;
-          color: #111;
+          background: #000;
+          color: #fff;
           font-family: Arial, Helvetica, sans-serif;
         }
 
+        button {
+          font: inherit;
+        }
+
+        .announcement {
+          height: 29px;
+          background: #000;
+          color: #fff;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0 4%;
+          font-size: 9px;
+          font-weight: 950;
+          letter-spacing: 1.5px;
+          border-bottom: 1px solid #292929;
+        }
+
         .site-header {
-          background: #080808;
+          background: #000;
           color: white;
-          padding: 20px 5% 17px;
-          display: flex;
-          flex-direction: column;
+          padding: 0 4%;
+          position: relative;
+          z-index: 5;
+          border-bottom: 1px solid #303030;
+        }
+
+        .header-top {
+          height: 76px;
+          display: grid;
+          grid-template-columns: 1fr auto 1fr;
           align-items: center;
-          gap: 17px;
         }
 
-        .brand {
-          color: white;
-          text-decoration: none;
-          font-size: 27px;
-          font-weight: 900;
-          letter-spacing: 2px;
-        }
-
-        .category-nav {
+        .logo {
+          grid-column: 2;
           display: flex;
+          align-items: center;
           justify-content: center;
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 28px;
         }
 
-        .category-nav a {
-          color: white;
-          text-decoration: none;
-          font-size: 11px;
-          font-weight: 800;
-          letter-spacing: 1.2px;
-          transition: color .2s;
-        }
-
-        .category-nav a:hover,
-        .category-nav a.active {
-          color: #b8ff35;
+        .logo-image {
+          width: 155px;
+          height: 58px;
+          object-fit: contain;
         }
 
         .header-icons {
-          position: absolute;
-          right: 5%;
-          top: 23px;
+          grid-column: 3;
+          justify-self: end;
           display: flex;
           align-items: center;
-          gap: 17px;
+          gap: 12px;
         }
 
         .header-icons a,
-        .icon-button {
-          width: 25px;
-          height: 27px;
-          color: white;
-          display: flex;
+        .header-icon {
+          position: relative;
+          display: inline-flex;
           align-items: center;
           justify-content: center;
-          position: relative;
-          background: none;
+          color: white;
+          text-decoration: none;
+          background: transparent;
           border: 0;
-          padding: 0;
+          padding: 9px;
           cursor: pointer;
         }
 
-        .header-icons svg {
-          width: 22px;
-          height: 22px;
-          fill: none;
-          stroke: currentColor;
-          stroke-width: 1.7;
-          stroke-linecap: round;
-          stroke-linejoin: round;
+        .header-icons a:hover,
+        .header-icon:hover {
+          opacity: 0.7;
         }
 
         .bag-count {
           position: absolute;
-          top: -8px;
-          right: -9px;
-          background: #b8ff35;
-          color: #080808;
-          width: 17px;
+          top: 0;
+          right: 0;
+          min-width: 17px;
           height: 17px;
-          border-radius: 50%;
+          padding: 0 4px;
+          border-radius: 20px;
+          background: #fff;
+          color: #000;
+          font-size: 10px;
+          font-weight: 900;
+          display: grid;
+          place-items: center;
+        }
+
+        .category-nav {
+          height: 49px;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 10px;
-          font-weight: 900;
+          gap: clamp(18px, 4vw, 55px);
+          background: #000;
+          border-top: 1px solid #292929;
+          overflow-x: auto;
+          scrollbar-width: none;
+        }
+
+        .category-nav::-webkit-scrollbar {
+          display: none;
+        }
+
+        .category-nav a {
+          color: #fff;
+          text-decoration: none;
+          font-size: 11px;
+          font-weight: 950;
+          letter-spacing: 1.3px;
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
+
+        .category-nav a:hover,
+        .category-nav a.active {
+          opacity: 0.65;
         }
 
         .intro {
@@ -667,7 +937,7 @@ export default function ElectronicsPage() {
           padding: 0;
           margin: 0;
           overflow: hidden;
-          background: #111;
+          background: #000;
         }
 
         .intro img {
@@ -677,19 +947,29 @@ export default function ElectronicsPage() {
           object-fit: contain;
         }
 
-        .catalogue { padding: 48px 5% 75px; }
-
-        .catalogue-heading { margin-bottom: 22px; }
-
-        .catalogue-heading h2 {
-          font-size: 23px;
-          font-weight: 900;
-          margin: 0 0 6px;
+        .catalogue {
+          padding: 55px 5% 85px;
+          background: #000;
         }
 
-        .catalogue-heading p {
+        .eyebrow {
+          margin: 0 0 12px;
           font-size: 11px;
-          color: #777;
+          font-weight: 900;
+          letter-spacing: 3px;
+          color: #999;
+        }
+
+        .catalogue-heading h2 {
+          font-size: clamp(25px, 4vw, 38px);
+          font-weight: 900;
+          letter-spacing: -1.5px;
+          margin: 0 0 8px;
+        }
+
+        .product-count {
+          font-size: 12px;
+          color: #999;
           font-weight: 800;
         }
 
@@ -697,19 +977,19 @@ export default function ElectronicsPage() {
           display: grid;
           grid-template-columns: 2fr 1fr 1fr 1fr;
           gap: 10px;
-          margin-bottom: 28px;
+          margin: 28px 0 35px;
         }
 
         .filters input,
         .filters select,
         .modal-info select {
           min-width: 0;
-          padding: 13px;
-          border: 1px solid #ddd;
-          background: white;
-          color: #111;
+          padding: 15px;
+          border: 1px solid #444;
+          background: #111;
+          color: #fff;
           border-radius: 0;
-          font-size: 13px;
+          font-size: 14px;
         }
 
         .product-grid {
@@ -721,16 +1001,16 @@ export default function ElectronicsPage() {
         .product-card {
           border: 0;
           padding: 0;
-          background: white;
-          color: #111;
+          background: #111;
+          color: #fff;
           text-align: left;
           cursor: pointer;
           min-width: 0;
         }
 
         .product-image {
-          height: 260px;
-          background: #e9e9e9;
+          height: 280px;
+          background: #191919;
           position: relative;
           display: flex;
           align-items: center;
@@ -748,11 +1028,19 @@ export default function ElectronicsPage() {
           object-fit: cover;
         }
 
+        .product-image img {
+          transition: transform 0.4s;
+        }
+
+        .product-card:hover .product-image img {
+          transform: scale(1.04);
+        }
+
         .view-label {
           position: absolute;
           bottom: 10px;
           left: 10px;
-          background: #b8ff35;
+          background: #fff;
           color: #111;
           padding: 8px 10px;
           font-size: 9px;
@@ -760,7 +1048,9 @@ export default function ElectronicsPage() {
           letter-spacing: 1px;
         }
 
-        .product-info { padding: 15px; }
+        .product-info {
+          padding: 15px;
+        }
 
         .product-info h3 {
           margin: 0 0 7px;
@@ -771,57 +1061,75 @@ export default function ElectronicsPage() {
         .product-info p {
           margin: 0 0 12px;
           font-size: 11px;
-          color: #777;
+          color: #999;
         }
 
-        .product-info strong { font-size: 14px; }
+        .product-info strong {
+          font-size: 14px;
+        }
 
         .status,
         .empty {
-          padding: 50px 15px;
+          padding: 65px 15px;
           text-align: center;
+          color: #aaa;
         }
 
-        .empty h3 { font-size: 22px; font-weight: 900; }
+        .empty h3 {
+          font-size: 24px;
+          font-weight: 900;
+          color: #fff;
+        }
 
         .footer {
-          background: #080808;
+          background: #000;
           color: white;
-          padding: 40px 5%;
+          padding: 45px 5%;
           text-align: center;
+          border-top: 1px solid #333;
         }
 
-        .footer > a {
+        .footer-brand {
           color: white;
-          font-size: 22px;
+          font-size: 25px;
           font-weight: 900;
           text-decoration: none;
         }
 
-        .footer p { color: #b8ff35; font-size: 11px; font-weight: 900; }
+        .footer p {
+          color: #aaa;
+          font-size: 11px;
+          letter-spacing: 3px;
+        }
 
         .footer div {
           display: flex;
           justify-content: center;
           flex-wrap: wrap;
-          gap: 20px;
-          margin: 22px 0;
+          gap: 22px;
+          margin: 25px 0;
         }
 
         .footer div a {
           color: white;
           text-decoration: none;
-          font-size: 12px;
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 1px;
         }
 
-        .footer small { color: #999; font-size: 10px; }
+        .footer small {
+          color: #999;
+          font-size: 10px;
+        }
 
-        .modal-backdrop,
-        .drawer-backdrop {
+        /* PRODUCT MODAL */
+
+        .modal-backdrop {
           position: fixed;
           inset: 0;
           z-index: 50;
-          background: rgba(0,0,0,.75);
+          background: rgba(0, 0, 0, 0.78);
           display: flex;
           justify-content: center;
           align-items: center;
@@ -830,9 +1138,12 @@ export default function ElectronicsPage() {
         }
 
         .product-modal {
-          background: white;
+          background: #f5f5f2;
+          color: #111;
           width: 100%;
           max-width: 850px;
+          max-height: 92vh;
+          overflow-y: auto;
           display: grid;
           grid-template-columns: 1fr 1fr;
           position: relative;
@@ -840,18 +1151,21 @@ export default function ElectronicsPage() {
 
         .close-button {
           position: absolute;
-          top: 8px;
+          top: 10px;
           right: 12px;
+          width: 40px;
+          height: 40px;
           border: 0;
-          background: transparent;
-          font-size: 32px;
+          border-radius: 50%;
+          background: #fff;
+          color: #111;
           cursor: pointer;
           z-index: 2;
         }
 
         .modal-image {
           min-height: 380px;
-          background: #eee;
+          background: #e6e6e3;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -867,214 +1181,341 @@ export default function ElectronicsPage() {
           gap: 14px;
         }
 
+        .modal-info .eyebrow {
+          color: #777;
+        }
+
         .modal-info h2 {
           font-size: 26px;
           font-weight: 900;
           margin: 0;
         }
 
-        .eyebrow {
-          font-size: 10px;
-          font-weight: 900;
-          letter-spacing: 1.5px;
-        }
-
-        .description {
+        .modal-description {
           color: #666;
           font-size: 13px;
           line-height: 1.6;
+          white-space: pre-wrap;
         }
 
-        .modal-info label { font-size: 12px; font-weight: 800; }
-        .modal-info select { width: 100%; }
-        .modal-price { font-size: 20px; }
+        .modal-info label {
+          font-size: 12px;
+          font-weight: 800;
+          letter-spacing: 1px;
+        }
+
+        .modal-info select {
+          width: 100%;
+          background: #fff;
+          color: #111;
+          border-color: #ccc;
+        }
+
+        .modal-price {
+          font-size: 20px;
+        }
+
+        .stock-text {
+          font-size: 11px;
+          letter-spacing: 0.7px;
+        }
+
+        .in-stock {
+          color: #333;
+        }
+
+        .out-stock {
+          color: #777;
+        }
 
         .add-button {
           width: 100%;
           padding: 16px;
-          border: 0;
-          background: #b8ff35;
+          border: 1px solid #111;
+          background: #111;
+          color: #fff;
           font-weight: 900;
+          letter-spacing: 1px;
           cursor: pointer;
         }
 
-        .add-button:disabled { opacity: .45; cursor: not-allowed; }
-        .message { font-size: 13px; font-weight: 700; }
-
-        .drawer-backdrop {
-          justify-content: flex-end;
-          align-items: stretch;
-          padding: 0;
-        }
-
-        .bag-drawer {
-          width: 100%;
-          max-width: 440px;
-          height: 100%;
-          background: white;
-          color: #111;
-          display: flex;
-          flex-direction: column;
-          padding: 25px;
-          overflow-y: auto;
-        }
-
-        .drawer-heading {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          border-bottom: 1px solid #ddd;
-          padding-bottom: 18px;
-        }
-
-        .drawer-heading h2 {
-          font-size: 17px;
-          font-weight: 900;
-          margin: 0;
-        }
-
-        .drawer-heading button {
-          border: 0;
-          background: none;
-          font-size: 30px;
-          cursor: pointer;
-        }
-
-        .empty-bag {
-          margin: auto;
-          text-align: center;
-          font-size: 14px;
-        }
-
-        .empty-bag button,
-        .bag-summary > button {
-          background: #b8ff35;
-          border: 0;
-          padding: 15px;
-          width: 100%;
-          font-size: 11px;
-          font-weight: 900;
-          cursor: pointer;
-        }
-
-        .bag-items { flex: 1; }
-
-        .bag-item {
-          display: grid;
-          grid-template-columns: 95px 1fr;
-          gap: 15px;
-          padding: 20px 0;
-          border-bottom: 1px solid #eee;
-        }
-
-        .bag-item-image {
-          height: 115px;
-          background: #eee;
-        }
-
-        .bag-item-image img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-
-        .bag-item-info h3 {
-          margin: 0 0 6px;
-          font-size: 13px;
-          font-weight: 800;
-        }
-
-        .bag-item-info p {
-          margin: 0 0 8px;
-          font-size: 11px;
-          color: #777;
-        }
-
-        .bag-item-info strong { font-size: 13px; }
-
-        .quantity-controls {
-          display: flex;
-          align-items: center;
-          gap: 13px;
-          margin-top: 12px;
-        }
-
-        .quantity-controls button {
-          width: 25px;
-          height: 25px;
-          border: 1px solid #ddd;
-          background: white;
-          cursor: pointer;
-        }
-
-        .quantity-controls button:disabled {
-          opacity: .35;
+        .add-button:disabled {
+          opacity: 0.45;
           cursor: not-allowed;
         }
 
-        .quantity-controls span { font-size: 12px; }
+        .message {
+          font-size: 12px;
+          line-height: 1.5;
+          font-weight: 700;
+        }
 
-        .remove-item {
-          display: block;
-          margin-top: 9px;
-          border: 0;
-          background: none;
+        /* SHOPPING BAG DRAWER */
+
+        .drawer-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 60;
+          display: flex;
+          justify-content: flex-start;
+          align-items: stretch;
           padding: 0;
-          color: #777;
-          text-decoration: underline;
+          background: rgba(0, 0, 0, 0.78);
+        }
+
+        .bag-drawer {
+          width: min(420px, 90vw);
+          height: 100%;
+          margin-left: auto;
+          overflow-y: auto;
+          padding: 24px;
+          background: #050505;
+          color: #fff;
+          box-shadow: -10px 0 35px rgba(0, 0, 0, 0.35);
+          display: flex;
+          flex-direction: column;
+        }
+
+        .drawer-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 15px;
+          padding-bottom: 22px;
+          border-bottom: 1px solid #333;
+        }
+
+        .drawer-header h2 {
+          font-size: 17px;
+          letter-spacing: 1px;
+          margin: 0;
+        }
+
+        .drawer-close {
+          display: grid;
+          place-items: center;
+          padding: 8px;
+          border: 0;
+          background: transparent;
+          color: #fff;
+          cursor: pointer;
+        }
+
+        .bag-lines {
+          padding: 20px 0;
+          flex: 1;
+        }
+
+        .bag-line {
+          display: flex;
+          gap: 14px;
+          padding: 15px 0;
+          border-bottom: 1px solid #292929;
+        }
+
+        .bag-line img,
+        .bag-no-image {
+          width: 90px;
+          height: 110px;
+          object-fit: cover;
+          background: #252525;
+          flex-shrink: 0;
+        }
+
+        .bag-no-image {
+          display: grid;
+          place-items: center;
           font-size: 10px;
+          font-weight: 900;
+        }
+
+        .bag-line-details {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 7px;
+          font-size: 11px;
+          min-width: 0;
+        }
+
+        .bag-line-details b {
+          line-height: 1.4;
+        }
+
+        .bag-line-details span {
+          color: #aaa;
+        }
+
+        .bag-line-details button {
+          padding: 0;
+          margin-top: 4px;
+          border: 0;
+          background: transparent;
+          color: #fff;
+          text-decoration: underline;
+          font-size: 9px;
           cursor: pointer;
         }
 
         .bag-summary {
-          border-top: 1px solid #ddd;
-          padding-top: 18px;
-          margin-top: 15px;
+          position: sticky;
+          bottom: 0;
+          padding: 18px 0;
+          background: #050505;
+          border-top: 1px solid #333;
         }
 
         .subtotal {
           display: flex;
           justify-content: space-between;
           font-size: 13px;
-          font-weight: 900;
         }
 
-        .bag-summary p {
-          color: #777;
+        .bag-summary p,
+        .empty-bag p {
+          color: #999;
           font-size: 11px;
-          line-height: 1.5;
-          margin: 12px 0 18px;
+          line-height: 1.6;
+        }
+
+        .checkout-button {
+          width: 100%;
+          padding: 16px;
+          border: 0;
+          background: #fff;
+          color: #000;
+          font-size: 11px;
+          font-weight: 950;
+          letter-spacing: 1px;
+          cursor: pointer;
+        }
+
+        .checkout-button:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .empty-bag {
+          min-height: 65vh;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          text-align: center;
+        }
+
+        .empty-bag h3 {
+          font-size: 14px;
+          letter-spacing: 1px;
         }
 
         @media (max-width: 850px) {
-          .site-header { padding-top: 65px; }
-          .header-icons { top: 20px; }
-          .category-nav { gap: 17px; }
-          .product-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-          .product-image { height: 220px; }
+          .product-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+          }
+
+          .product-image {
+            height: 220px;
+          }
+
+          .filters {
+            grid-template-columns: 1fr 1fr;
+          }
+
+          .filters input {
+            grid-column: 1 / -1;
+          }
         }
 
-        @media (max-width: 600px) {
-          .brand { font-size: 23px; }
-          .category-nav { gap: 13px; }
-          .category-nav a { font-size: 9px; }
-          .header-icons { gap: 13px; }
-          .catalogue { padding: 35px 4%; }
-          .filters { grid-template-columns: 1fr 1fr; }
-          .filters input { grid-column: 1 / -1; }
+        @media (max-width: 760px) {
+          .announcement {
+            padding: 0 13px;
+            font-size: 8px;
+            letter-spacing: 1px;
+          }
+
+          .header-top {
+            height: 65px;
+          }
+
+          .logo-image {
+            width: 125px;
+            height: 49px;
+          }
+
+          .header-icons {
+            gap: 2px;
+          }
+
+          .header-icons a,
+          .header-icon {
+            padding: 7px;
+          }
+
+          .category-nav {
+            height: 43px;
+            justify-content: flex-start;
+            gap: 23px;
+            padding: 0 2px;
+          }
+
+          .category-nav a {
+            font-size: 9px;
+            white-space: nowrap;
+          }
+
+          .catalogue {
+            padding: 40px 15px 60px;
+          }
+
           .product-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 10px;
+            gap: 22px 12px;
           }
-          .product-image { height: 185px; }
-          .product-info { padding: 11px; }
-          .product-info h3 { font-size: 12px; }
+
+          .product-image {
+            height: auto;
+            aspect-ratio: 1 / 1.08;
+          }
+
+          .product-info {
+            padding: 11px;
+          }
+
+          .product-info h3 {
+            font-size: 12px;
+          }
+
+          .product-info p {
+            font-size: 10px;
+          }
+
+          .product-info strong {
+            font-size: 12px;
+          }
+
           .product-modal {
             grid-template-columns: 1fr;
             max-width: 430px;
           }
-          .modal-image { min-height: 230px; max-height: 260px; }
-          .modal-info { padding: 25px 20px; }
+
+          .modal-image {
+            min-height: 230px;
+            max-height: 260px;
+          }
+
+          .modal-info {
+            padding: 25px 20px;
+          }
+
+          .footer {
+            padding: 35px 18px;
+          }
+
+          .footer div {
+            gap: 15px;
+          }
         }
       `}</style>
     </main>
