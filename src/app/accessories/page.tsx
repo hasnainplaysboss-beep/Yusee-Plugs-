@@ -198,9 +198,11 @@ export default function AccessoriesPage() {
       </header>
 
       <section className="intro">
-        <p className="eyebrow">YUSEE PLUGS COLLECTION</p>
-        <h1>ACCESSORIES</h1>
-        <p>The finishing touches. Everyday essentials. Stand out.</p>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/4F99E17E-317D-4FB1-AF4D-B80C938AD09D.png"
+          alt="Yusee Plugs Accessories Collection"
+        />
       </section>
 
       <section className="catalogue">
@@ -421,20 +423,24 @@ export default function AccessoriesPage() {
           letter-spacing: 1px;
         }
         nav a:hover, nav a.active { color: #b8ff35; }
-        .intro { background: #b8ff35; padding: 65px 7%; }
+        .intro {
+          width: 100%;
+          padding: 0;
+          margin: 0;
+          overflow: hidden;
+          background: #111;
+        }
+        .intro img {
+          display: block;
+          width: 100%;
+          height: auto;
+          object-fit: contain;
+        }
         .eyebrow {
           font-size: 11px;
           font-weight: 900;
           letter-spacing: 2px;
         }
-        .intro h1 {
-          margin: 10px 0;
-          font-size: clamp(42px, 8vw, 82px);
-          font-weight: 1000;
-          letter-spacing: -4px;
-          line-height: .95;
-        }
-        .intro > p:last-child { font-size: 15px; }
         .catalogue { padding: 48px 5% 75px; }
         .catalogue-heading h2 {
           font-size: 23px;
@@ -618,8 +624,6 @@ export default function AccessoriesPage() {
           .product-image { height: 220px; }
         }
         @media (max-width: 600px) {
-          .intro { padding: 48px 6%; }
-          .intro h1 { letter-spacing: -2px; }
           .catalogue { padding: 35px 4%; }
           .filters { grid-template-columns: 1fr 1fr; }
           .filters input { grid-column: 1 / -1; }
