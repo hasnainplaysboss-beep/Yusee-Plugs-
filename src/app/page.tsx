@@ -1,4 +1,4 @@
-
+it has a gap at the top n bottom 
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -98,7 +98,6 @@ export default function Home() {
   useEffect(() => {
     try {
       const stored = localStorage.getItem("yusee_bag");
-
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed)) setBag(parsed);
@@ -111,9 +110,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (bagReady) {
-      localStorage.setItem("yusee_bag", JSON.stringify(bag));
-    }
+    if (bagReady) localStorage.setItem("yusee_bag", JSON.stringify(bag));
   }, [bag, bagReady]);
 
   useEffect(() => {
@@ -147,7 +144,6 @@ export default function Home() {
     if (!selectedProduct) return;
 
     const currentId = selectedVariants[selectedProduct.id];
-
     const chosen =
       selectedProduct.variants.find(v => v.id === currentId && v.stock > 0) ||
       selectedProduct.variants.find(v => v.stock > 0) ||
@@ -204,9 +200,7 @@ export default function Home() {
       product.variants.find(v => v.size === size && v.stock > 0) ||
       product.variants.find(v => v.size === size);
 
-    if (match) {
-      setSelectedVariants(old => ({ ...old, [product.id]: match.id }));
-    }
+    if (match) setSelectedVariants(old => ({ ...old, [product.id]: match.id }));
   }
 
   function changeColour(product: Product, colour: string) {
@@ -223,9 +217,7 @@ export default function Home() {
       product.variants.find(v => v.colour === colour && v.stock > 0) ||
       product.variants.find(v => v.colour === colour);
 
-    if (match) {
-      setSelectedVariants(old => ({ ...old, [product.id]: match.id }));
-    }
+    if (match) setSelectedVariants(old => ({ ...old, [product.id]: match.id }));
   }
 
   function changeDelivery(product: Product, delivery: string) {
@@ -242,9 +234,7 @@ export default function Home() {
       product.variants.find(v => v.delivery === delivery && v.stock > 0) ||
       product.variants.find(v => v.delivery === delivery);
 
-    if (match) {
-      setSelectedVariants(old => ({ ...old, [product.id]: match.id }));
-    }
+    if (match) setSelectedVariants(old => ({ ...old, [product.id]: match.id }));
   }
 
   function addToBag(variant: Variant) {
@@ -292,10 +282,9 @@ export default function Home() {
 
     const deliveries = new Set(
       items.map(item => {
-        const variant = products
-          .flatMap(p => p.variants)
-          .find(v => v.id === item.variantId);
-
+        const variant = products.flatMap(p => p.variants).find(
+          v => v.id === item.variantId
+        );
         return normaliseDelivery(variant?.delivery);
       })
     );
@@ -334,11 +323,9 @@ export default function Home() {
       const product = products.find(p =>
         p.variants.some(v => v.id === line.variantId)
       );
-
       const variant = product?.variants.find(v => v.id === line.variantId);
 
       if (!product || !variant) return null;
-
       return { ...line, product, variant };
     })
     .filter((item): item is NonNullable<typeof item> => item !== null);
@@ -355,28 +342,20 @@ export default function Home() {
     : undefined;
 
   const modalSizes = selectedProduct
-    ? Array.from(
-        new Set(selectedProduct.variants.map(v => v.size).filter(Boolean))
-      ) as string[]
+    ? Array.from(new Set(selectedProduct.variants.map(v => v.size).filter(Boolean))) as string[]
     : [];
 
   const modalColours = selectedProduct
-    ? Array.from(
-        new Set(selectedProduct.variants.map(v => v.colour).filter(Boolean))
-      ) as string[]
+    ? Array.from(new Set(selectedProduct.variants.map(v => v.colour).filter(Boolean))) as string[]
     : [];
 
   const modalDeliveries = selectedProduct
-    ? Array.from(
-        new Set(selectedProduct.variants.map(v => v.delivery).filter(Boolean))
-      ) as string[]
+    ? Array.from(new Set(selectedProduct.variants.map(v => v.delivery).filter(Boolean))) as string[]
     : [];
 
   function productPrice(product: Product) {
     if (!product.variants.length) return null;
-
     const cheapest = Math.min(...product.variants.map(v => v.pricePence));
-
     return `£${(cheapest / 100).toFixed(2)}`;
   }
 
@@ -431,11 +410,7 @@ export default function Home() {
           </Link>
 
           {adminSignedIn && (
-            <Link
-              className="headerIcon adminIcon"
-              aria-label="Admin dashboard"
-              href="/admin"
-            >
+            <Link className="headerIcon adminIcon" aria-label="Admin dashboard" href="/admin">
               <ShieldCheck size={22} strokeWidth={2} />
             </Link>
           )}
@@ -455,14 +430,12 @@ export default function Home() {
         <div className="searchPanel">
           <div className="searchInputWrap">
             <Search size={20} />
-
             <input
               autoFocus
               placeholder="Search products..."
               value={query}
               onChange={e => setQuery(e.target.value)}
             />
-
             <button
               aria-label="Close search"
               onClick={() => {
@@ -488,7 +461,6 @@ export default function Home() {
                     ) : (
                       <span className="searchNoImage">YP</span>
                     )}
-
                     <span>{product.name}</span>
                     <ArrowUpRight size={17} />
                   </button>
@@ -499,11 +471,7 @@ export default function Home() {
             </div>
           )}
 
-          <Link
-            className="searchAllLink"
-            href="/shop"
-            onClick={() => setSearchOpen(false)}
-          >
+          <Link className="searchAllLink" href="/shop" onClick={() => setSearchOpen(false)}>
             SEARCH THE FULL COLLECTION <ArrowUpRight size={16} />
           </Link>
         </div>
@@ -517,9 +485,9 @@ export default function Home() {
         <Link href="/shop">ALL PRODUCTS</Link>
       </nav>
 
+      {/* BANNER: the image contains the SHOP NOW button */}
       <section className="hero">
         <div className="heroImage" />
-
         <Link
           href="/shop"
           className="heroShopNowLink"
@@ -563,14 +531,11 @@ export default function Home() {
                     ) : (
                       <span className="noImage">YUSEE PLUGS</span>
                     )}
-
                     {!inStock && <span className="soldOut">SOLD OUT</span>}
                   </button>
 
                   <button
-                    className={`saveButton ${
-                      saved.includes(product.id) ? "isSaved" : ""
-                    }`}
+                    className={`saveButton ${saved.includes(product.id) ? "isSaved" : ""}`}
                     aria-label="Save product"
                     onClick={() =>
                       setSaved(old =>
@@ -582,9 +547,7 @@ export default function Home() {
                   >
                     <Heart
                       size={21}
-                      fill={
-                        saved.includes(product.id) ? "currentColor" : "none"
-                      }
+                      fill={saved.includes(product.id) ? "currentColor" : "none"}
                     />
                   </button>
 
@@ -605,13 +568,8 @@ export default function Home() {
       <section className="shopCallout">
         <div>
           <p className="eyebrow">FIND YOUR NEXT FAVOURITE</p>
-          <h2>
-            THE COLLECTION
-            <br />
-            IS YOURS TO EXPLORE.
-          </h2>
+          <h2>THE COLLECTION<br />IS YOURS TO EXPLORE.</h2>
         </div>
-
         <Link href="/shop">
           SHOP ALL PRODUCTS <ArrowUpRight size={20} />
         </Link>
@@ -620,20 +578,14 @@ export default function Home() {
       <footer className="footer">
         <div className="footerTop">
           <div className="footerBrand">
-            <Link href="/" className="footerLogo">
-              YUSEE PLUGS
-            </Link>
+            <Link href="/" className="footerLogo">YUSEE PLUGS</Link>
             <p>YOUR STYLE. YOUR RULES.</p>
           </div>
         </div>
 
         <div className="footerAccordion">
           <details>
-            <summary>
-              <span>CUSTOMER SERVICE</span>
-              <span className="footerPlus">+</span>
-            </summary>
-
+            <summary><span>CUSTOMER SERVICE</span><span className="footerPlus">+</span></summary>
             <div className="footerAccordionContent">
               <Link href="/delivery">DELIVERY INFORMATION</Link>
               <Link href="/returns">RETURNS & REFUNDS</Link>
@@ -641,42 +593,15 @@ export default function Home() {
               <Link href="/faq">FAQ</Link>
             </div>
           </details>
-
           <details>
-            <summary>
-              <span>ELEVATE YOUR EVERYDAY</span>
-              <span className="footerPlus">+</span>
-            </summary>
-
+            <summary><span>ELEVATE YOUR EVERYDAY</span><span className="footerPlus">+</span></summary>
             <div className="footerAccordionContent newsletterContent">
-              <p>
-                JOIN THE YUSEE PLUGS COMMUNITY FOR NEW DROPS, EXCLUSIVE UPDATES
-                AND MORE.
-              </p>
-
-              <form
-                className="newsletterForm"
-                onSubmit={e => {
-                  e.preventDefault();
-                  alert("Newsletter signup is not yet connected.");
-                }}
-              >
-                <input
-                  type="email"
-                  placeholder="ENTER YOUR EMAIL ADDRESS"
-                  aria-label="Email address"
-                  required
-                />
-
-                <button type="submit">
-                  SIGN UP <ArrowUpRight size={18} />
-                </button>
+              <p>JOIN THE YUSEE PLUGS COMMUNITY FOR NEW DROPS, EXCLUSIVE UPDATES AND MORE.</p>
+              <form className="newsletterForm" onSubmit={e => { e.preventDefault(); alert("Newsletter signup is not yet connected."); }}>
+                <input type="email" placeholder="ENTER YOUR EMAIL ADDRESS" aria-label="Email address" required />
+                <button type="submit">SIGN UP <ArrowUpRight size={18} /></button>
               </form>
-
-              <p className="newsletterDisclaimer">
-                BY SIGNING UP, YOU AGREE TO RECEIVE EMAIL UPDATES FROM YUSEE
-                PLUGS.
-              </p>
+              <p className="newsletterDisclaimer">BY SIGNING UP, YOU AGREE TO RECEIVE EMAIL UPDATES FROM YUSEE PLUGS.</p>
             </div>
           </details>
         </div>
@@ -692,7 +617,6 @@ export default function Home() {
 
         <div className="footerCountry">
           <label htmlFor="footerCountrySelect">COUNTRY / REGION</label>
-
           <select id="footerCountrySelect" defaultValue="uk">
             <option value="uk">United Kingdom (GBP £)</option>
           </select>
@@ -705,10 +629,7 @@ export default function Home() {
       </footer>
 
       {selectedProduct && (
-        <div
-          className="modalBackdrop"
-          onClick={() => setSelectedProduct(null)}
-        >
+        <div className="modalBackdrop" onClick={() => setSelectedProduct(null)}>
           <section
             className="productModal"
             role="dialog"
@@ -726,10 +647,7 @@ export default function Home() {
 
             <div className="modalImage">
               {selectedProduct.imageUrl ? (
-                <img
-                  src={selectedProduct.imageUrl}
-                  alt={selectedProduct.name}
-                />
+                <img src={selectedProduct.imageUrl} alt={selectedProduct.name} />
               ) : (
                 <span className="noImage">YUSEE PLUGS</span>
               )}
@@ -737,7 +655,6 @@ export default function Home() {
 
             <div className="modalDetails">
               <p className="eyebrow">YUSEE PLUGS</p>
-
               <h2>{selectedProduct.name}</h2>
 
               {modalVariant && (
@@ -747,27 +664,20 @@ export default function Home() {
               )}
 
               {selectedProduct.description && (
-                <p className="modalDescription">
-                  {selectedProduct.description}
-                </p>
+                <p className="modalDescription">{selectedProduct.description}</p>
               )}
 
               {modalSizes.length > 0 && (
                 <label className="variantLabel">
                   SIZE
-
                   <select
                     value={modalVariant?.size || ""}
-                    onChange={e =>
-                      changeSize(selectedProduct, e.target.value)
-                    }
+                    onChange={e => changeSize(selectedProduct, e.target.value)}
                   >
                     {modalSizes.map(size => (
                       <option key={size} value={size}>
                         {size}
-                        {!selectedProduct.variants.some(
-                          v => v.size === size && v.stock > 0
-                        )
+                        {!selectedProduct.variants.some(v => v.size === size && v.stock > 0)
                           ? " — SOLD OUT"
                           : ""}
                       </option>
@@ -779,19 +689,14 @@ export default function Home() {
               {modalColours.length > 0 && (
                 <label className="variantLabel">
                   COLOUR
-
                   <select
                     value={modalVariant?.colour || ""}
-                    onChange={e =>
-                      changeColour(selectedProduct, e.target.value)
-                    }
+                    onChange={e => changeColour(selectedProduct, e.target.value)}
                   >
                     {modalColours.map(colour => (
                       <option key={colour} value={colour}>
                         {colour}
-                        {!selectedProduct.variants.some(
-                          v => v.colour === colour && v.stock > 0
-                        )
+                        {!selectedProduct.variants.some(v => v.colour === colour && v.stock > 0)
                           ? " — SOLD OUT"
                           : ""}
                       </option>
@@ -803,19 +708,14 @@ export default function Home() {
               {modalDeliveries.length > 0 && (
                 <label className="variantLabel">
                   DELIVERY
-
                   <select
                     value={modalVariant?.delivery || ""}
-                    onChange={e =>
-                      changeDelivery(selectedProduct, e.target.value)
-                    }
+                    onChange={e => changeDelivery(selectedProduct, e.target.value)}
                   >
                     {modalDeliveries.map(delivery => (
                       <option key={delivery} value={delivery}>
                         {delivery}
-                        {!selectedProduct.variants.some(
-                          v => v.delivery === delivery && v.stock > 0
-                        )
+                        {!selectedProduct.variants.some(v => v.delivery === delivery && v.stock > 0)
                           ? " — SOLD OUT"
                           : ""}
                       </option>
@@ -824,11 +724,7 @@ export default function Home() {
                 </label>
               )}
 
-              <p
-                className={`stockText ${
-                  modalVariant?.stock ? "inStock" : "outStock"
-                }`}
-              >
+              <p className={`stockText ${modalVariant?.stock ? "inStock" : "outStock"}`}>
                 {modalVariant
                   ? modalVariant.stock > 0
                     ? `${modalVariant.stock} AVAILABLE`
@@ -839,28 +735,17 @@ export default function Home() {
               <button
                 className="modalPrimary"
                 disabled={!modalVariant || modalVariant.stock < 1}
-                onClick={() =>
-                  modalVariant && addToBag(modalVariant)
-                }
+                onClick={() => modalVariant && addToBag(modalVariant)}
               >
                 ADD TO BAG
               </button>
 
               <button
                 className="modalSecondary"
-                disabled={
-                  checkoutLoading ||
-                  !modalVariant ||
-                  modalVariant.stock < 1
-                }
+                disabled={checkoutLoading || !modalVariant || modalVariant.stock < 1}
                 onClick={() =>
                   modalVariant &&
-                  startCheckout([
-                    {
-                      variantId: modalVariant.id,
-                      quantity: 1,
-                    },
-                  ])
+                  startCheckout([{ variantId: modalVariant.id, quantity: 1 }])
                 }
               >
                 {checkoutLoading ? "CONNECTING..." : "BUY NOW"}
@@ -878,16 +763,9 @@ export default function Home() {
 
       {menuOpen && (
         <div className="drawerBackdrop" onClick={closeMenu}>
-          <aside
-            className="drawer menuDrawer"
-            onClick={e => e.stopPropagation()}
-          >
+          <aside className="drawer menuDrawer" onClick={e => e.stopPropagation()}>
             <div className="drawerHeader">
-              <Link
-                href="/"
-                className="drawerLogo"
-                onClick={closeMenu}
-              >
+              <Link href="/" className="drawerLogo" onClick={closeMenu}>
                 <Image
                   src="/FAAEF0EE-B20E-425B-AC66-5DA42ADAF006.png"
                   alt="Yusee Plugs"
@@ -895,7 +773,6 @@ export default function Home() {
                   height={55}
                 />
               </Link>
-
               <button
                 className="headerIcon"
                 aria-label="Close menu"
@@ -907,51 +784,22 @@ export default function Home() {
 
             <p className="drawerEyebrow">SHOP BY CATEGORY</p>
 
-            <Link
-              className="drawerLink"
-              href="/mens"
-              onClick={closeMenu}
-            >
+            <Link className="drawerLink" href="/mens" onClick={closeMenu}>
               <span>01</span> MEN'S <ArrowUpRight />
             </Link>
-
-            <Link
-              className="drawerLink"
-              href="/womens"
-              onClick={closeMenu}
-            >
+            <Link className="drawerLink" href="/womens" onClick={closeMenu}>
               <span>02</span> WOMEN'S <ArrowUpRight />
             </Link>
-
-            <Link
-              className="drawerLink"
-              href="/electronics"
-              onClick={closeMenu}
-            >
+            <Link className="drawerLink" href="/electronics" onClick={closeMenu}>
               <span>03</span> ELECTRONICS <ArrowUpRight />
             </Link>
-
-            <Link
-              className="drawerLink"
-              href="/accessories"
-              onClick={closeMenu}
-            >
+            <Link className="drawerLink" href="/accessories" onClick={closeMenu}>
               <span>04</span> ACCESSORIES <ArrowUpRight />
             </Link>
-
-            <Link
-              className="drawerLink"
-              href="/shop"
-              onClick={closeMenu}
-            >
+            <Link className="drawerLink" href="/shop" onClick={closeMenu}>
               <span>05</span> ALL PRODUCTS <ArrowUpRight />
             </Link>
-
-            <Link
-              className="drawerLink saleLink"
-              href="/shop"
-              onClick={closeMenu}
-            >
+            <Link className="drawerLink saleLink" href="/shop" onClick={closeMenu}>
               <span>06</span> SHOP THE COLLECTION <ArrowUpRight />
             </Link>
 
@@ -964,17 +812,10 @@ export default function Home() {
       )}
 
       {bagOpen && (
-        <div
-          className="drawerBackdrop"
-          onClick={() => setBagOpen(false)}
-        >
-          <aside
-            className="drawer bagDrawer"
-            onClick={e => e.stopPropagation()}
-          >
+        <div className="drawerBackdrop" onClick={() => setBagOpen(false)}>
+          <aside className="drawer bagDrawer" onClick={e => e.stopPropagation()}>
             <div className="drawerHeader">
               <h2>YOUR BAG ({bagCount})</h2>
-
               <button
                 className="headerIcon"
                 aria-label="Close bag"
@@ -989,11 +830,7 @@ export default function Home() {
                 <ShoppingBag size={36} />
                 <h3>YOUR BAG IS EMPTY</h3>
                 <p>Find your next favourite.</p>
-
-                <button
-                  className="checkoutButton"
-                  onClick={() => setBagOpen(false)}
-                >
+                <button className="checkoutButton" onClick={() => setBagOpen(false)}>
                   CONTINUE SHOPPING
                 </button>
               </div>
@@ -1003,41 +840,22 @@ export default function Home() {
                   {bagItems.map(item => (
                     <div className="bagLine" key={item.variantId}>
                       {item.product.imageUrl ? (
-                        <img
-                          src={item.product.imageUrl}
-                          alt={item.product.name}
-                        />
+                        <img src={item.product.imageUrl} alt={item.product.name} />
                       ) : (
                         <div className="bagNoImage">YUSEE</div>
                       )}
 
                       <div className="bagLineDetails">
                         <b>{item.product.name}</b>
-
-                        {item.variant.size && (
-                          <span>Size: {item.variant.size}</span>
-                        )}
-
-                        {item.variant.colour && (
-                          <span>Colour: {item.variant.colour}</span>
-                        )}
-
-                        {item.variant.delivery && (
-                          <span>Delivery: {item.variant.delivery}</span>
-                        )}
-
+                        {item.variant.size && <span>Size: {item.variant.size}</span>}
+                        {item.variant.colour && <span>Colour: {item.variant.colour}</span>}
+                        {item.variant.delivery && <span>Delivery: {item.variant.delivery}</span>}
                         <span>
-                          £{(item.variant.pricePence / 100).toFixed(2)} ×{" "}
-                          {item.quantity}
+                          £{(item.variant.pricePence / 100).toFixed(2)} × {item.quantity}
                         </span>
-
                         <button
                           onClick={() =>
-                            setBag(old =>
-                              old.filter(
-                                line => line.variantId !== item.variantId
-                              )
-                            )
+                            setBag(old => old.filter(line => line.variantId !== item.variantId))
                           }
                         >
                           REMOVE
@@ -1052,12 +870,10 @@ export default function Home() {
                     <span>SUBTOTAL</span>
                     <b>£{(total / 100).toFixed(2)}</b>
                   </div>
-
                   <p>
-                    Delivery is included in the selected product price. Your
-                    delivery type is shown beside each item.
+                    Delivery is included in the selected product price. Your delivery
+                    type is shown beside each item.
                   </p>
-
                   <button
                     className="checkoutButton"
                     disabled={checkoutLoading}
@@ -1070,9 +886,7 @@ export default function Home() {
                       )
                     }
                   >
-                    {checkoutLoading
-                      ? "CONNECTING TO STRIPE..."
-                      : "CHECKOUT"}
+                    {checkoutLoading ? "CONNECTING TO STRIPE..." : "CHECKOUT"}
                   </button>
                 </div>
               </>
@@ -1295,27 +1109,21 @@ export default function Home() {
           letter-spacing: 1px;
         }
 
-        /* FULL-WIDTH BANNER - FIXED TO REMOVE TOP AND BOTTOM GAPS */
+        /* FULL-WIDTH BANNER WITH CLICKABLE SHOP NOW BUTTON */
 
         .hero {
-          display: block;
           width: 100%;
           aspect-ratio: 16 / 9;
           position: relative;
           overflow: hidden;
           background: #000;
-          margin: 0;
-          padding: 0;
-          line-height: 0;
         }
 
         .heroImage {
           position: absolute;
           inset: 0;
-          width: 100%;
-          height: 100%;
           background-image: url("/FA104F8F-BE6B-4BFC-AEF4-8408AD0A4D6D.png");
-          background-size: cover;
+          background-size: contain;
           background-position: center;
           background-repeat: no-repeat;
           background-color: #000;
@@ -2276,6 +2084,3 @@ export default function Home() {
     </main>
   );
 }
-
-      
-      
