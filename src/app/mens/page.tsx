@@ -41,8 +41,11 @@ function productPrice(product: Product) {
 
 function isMensProduct(product: Product) {
   const category = (product.category || "").trim().toLowerCase();
-  return category === "men" || category.startsWith("men/") ||
-    category.startsWith("men /");
+  return (
+    category === "men" ||
+    category.startsWith("men/") ||
+    category.startsWith("men /")
+  );
 }
 
 function categoryName(category?: string | null) {
@@ -254,9 +257,11 @@ export default function MensPage() {
       </header>
 
       <section className="hero">
-        <p>THE YUSEE COLLECTION</p>
-        <h1>MEN'S COLLECTION</h1>
-        <span>Everyday essentials. Standout style.</span>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/4A72528E-A9E4-4604-BBFD-28C98BD71CB1.png"
+          alt="Yusee Plugs Men's Collection"
+        />
       </section>
 
       <section className="catalogue">
@@ -531,28 +536,18 @@ export default function MensPage() {
         }
 
         .hero {
-          padding: 58px 20px;
-          background: #f3f3f3;
-          text-align: center;
+          width: 100%;
+          padding: 0;
+          margin: 0;
+          overflow: hidden;
+          background: #111;
         }
 
-        .hero p,
-        .modal-info small {
-          font-size: 10px;
-          font-weight: 800;
-          letter-spacing: 2px;
-        }
-
-        .hero h1 {
-          margin: 12px 0;
-          font-size: clamp(32px, 5vw, 54px);
-          font-weight: 900;
-          letter-spacing: -1.5px;
-        }
-
-        .hero span {
-          color: #666;
-          font-size: 14px;
+        .hero img {
+          display: block;
+          width: 100%;
+          height: auto;
+          object-fit: contain;
         }
 
         .catalogue {
