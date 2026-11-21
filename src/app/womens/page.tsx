@@ -261,9 +261,11 @@ export default function WomensPage() {
       </header>
 
       <section className="hero">
-        <p>THE YUSEE COLLECTION</p>
-        <h1>WOMEN'S COLLECTION</h1>
-        <span>Everyday essentials. Standout style.</span>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/175AA31F-54FB-4E70-A53F-4CE6FB09324F.png"
+          alt="Yusee Plugs Women's Collection"
+        />
       </section>
 
       <section className="catalogue">
@@ -538,28 +540,18 @@ export default function WomensPage() {
         }
 
         .hero {
-          padding: 58px 20px;
-          background: #f3f3f3;
-          text-align: center;
+          width: 100%;
+          padding: 0;
+          margin: 0;
+          overflow: hidden;
+          background: #111;
         }
 
-        .hero p,
-        .modal-info small {
-          font-size: 10px;
-          font-weight: 800;
-          letter-spacing: 2px;
-        }
-
-        .hero h1 {
-          margin: 12px 0;
-          font-size: clamp(32px, 5vw, 54px);
-          font-weight: 900;
-          letter-spacing: -1.5px;
-        }
-
-        .hero span {
-          color: #666;
-          font-size: 14px;
+        .hero img {
+          display: block;
+          width: 100%;
+          height: auto;
+          object-fit: contain;
         }
 
         .catalogue {
@@ -975,4 +967,3 @@ export default function WomensPage() {
     </main>
   );
 }
-
