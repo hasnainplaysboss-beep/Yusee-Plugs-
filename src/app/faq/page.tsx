@@ -1,203 +1,116 @@
+"use client";
+
+import { useState } from "react";
 
 export default function FAQPage() {
   const questions = [
     {
-      question: "How do I place an order?",
-      answer:
-        "Browse our collection, select your product and available variant, choose the delivery option where available, and add it to your bag. You can then proceed to checkout.",
+      q: "Where do you ship from?",
+      a: "Orders may be fulfilled from the UK or China depending on the product.",
     },
     {
-      question: "What delivery options do you offer?",
-      answer:
-        "We currently offer variants marked for UK delivery and variants marked for China delivery. The delivery type is displayed on the product before you purchase.",
+      q: "Is delivery included in the price?",
+      a: "Yes. Delivery is included in the price displayed for each product.",
     },
     {
-      question: "Can I mix UK and China delivery products in one order?",
-      answer:
-        "No. Your bag can only contain products using the same delivery type. You will need to complete one order before placing an order using the other delivery type.",
+      q: "How long does delivery take?",
+      a: "Delivery times vary depending on the product and fulfilment location. Estimated delivery details are shown where available.",
     },
     {
-      question: "Is delivery charged separately?",
-      answer:
-        "Delivery is included in the selected product price. A separate delivery charge is not currently added at checkout.",
+      q: "Can I order products with different delivery types together?",
+      a: "Currently, products with different delivery types cannot be purchased together in the same checkout.",
     },
     {
-      question: "How long will my order take to arrive?",
-      answer:
-        "Delivery times vary depending on the product and fulfilment route. Please check the delivery information provided for your selected product or your order confirmation.",
+      q: "Can I return an item?",
+      a: "Please contact us within 14 days of receiving your order to discuss a return. Items must meet our return conditions. Your statutory rights are not affected.",
     },
     {
-      question: "How can I track my order?",
-      answer:
-        "If tracking is available for your order, tracking details will be provided after dispatch.",
+      q: "What if my item arrives damaged or faulty?",
+      a: "Contact us as soon as possible at hello@yuseeplugs.com and we'll help you resolve the issue.",
     },
     {
-      question: "Can I return an item?",
-      answer:
-        "Please contact us within 14 days of receiving your order if you wish to return an item. We will provide instructions on how to proceed.",
-    },
-    {
-      question: "What should I do if my item arrives damaged?",
-      answer:
-        "Contact us as soon as possible and provide your order number and details of the damage. Photographs can help us investigate and resolve the issue.",
-    },
-    {
-      question: "How can I contact Yusee Plugs?",
-      answer:
-        "You can contact our customer service team by emailing hello@yuseeplugs.com.",
-    },
-    {
-      question: "What payment methods can I use?",
-      answer:
-        "Available payment methods are displayed at checkout. Your payment is processed securely through our checkout provider.",
+      q: "How can I contact Yusee Plugs?",
+      a: "Email us at hello@yuseeplugs.com and we'll get back to you.",
     },
   ];
 
+  const [open, setOpen] = useState<number | null>(null);
+
   return (
-    <main className="page">
-      <header>
-        <a href="/" className="logo">YUSEE PLUGS</a>
-        <p className="eyebrow">WE ARE HERE TO HELP</p>
-        <h1>FREQUENTLY ASKED QUESTIONS</h1>
-        <p className="intro">
-          Find answers to the most common questions about shopping with Yusee Plugs.
-        </p>
-      </header>
+    <main style={{
+      minHeight: "100vh",
+      background: "#0a0a0a",
+      color: "#fff",
+      padding: "60px 24px",
+      fontFamily: "Arial, sans-serif",
+    }}>
+      <div style={{ maxWidth: "800px", margin: "0 auto" }}>
+        <a href="/" style={{
+          color: "#aaa",
+          textDecoration: "none",
+        }}>
+          ← Back to Yusee Plugs
+        </a>
 
-      <div className="questions">
+        <h1 style={{
+          fontSize: "40px",
+          marginTop: "40px",
+          marginBottom: "15px",
+        }}>
+          Frequently Asked Questions
+        </h1>
+
+        <p style={{ color: "#aaa", lineHeight: 1.7, marginBottom: "35px" }}>
+          Everything you need to know about shopping with Yusee Plugs.
+        </p>
+
         {questions.map((item, index) => (
-          <details key={index}>
-            <summary>
-              <span>{item.question}</span>
-              <span className="plus">+</span>
-            </summary>
-            <div className="answer">
-              <p>{item.answer}</p>
-            </div>
-          </details>
+          <div key={index} style={{
+            borderBottom: "1px solid #333",
+            padding: "22px 0",
+          }}>
+            <button
+              onClick={() => setOpen(open === index ? null : index)}
+              style={{
+                width: "100%",
+                background: "transparent",
+                color: "#fff",
+                border: "none",
+                textAlign: "left",
+                fontSize: "17px",
+                fontWeight: "bold",
+                cursor: "pointer",
+                display: "flex",
+                justifyContent: "space-between",
+                gap: "20px",
+              }}
+            >
+              {item.q}
+              <span>{open === index ? "−" : "+"}</span>
+            </button>
+
+            {open === index && (
+              <p style={{
+                color: "#aaa",
+                lineHeight: 1.8,
+                marginTop: "18px",
+              }}>
+                {item.a}
+              </p>
+            )}
+          </div>
         ))}
+
+        <div style={{ marginTop: "40px" }}>
+          <p style={{ color: "#aaa" }}>Still need help?</p>
+          <a href="mailto:hello@yuseeplugs.com" style={{
+            color: "#fff",
+            textDecoration: "underline",
+          }}>
+            hello@yuseeplugs.com
+          </a>
+        </div>
       </div>
-
-      <section className="contact">
-        <h2>STILL NEED HELP?</h2>
-        <p>
-          If you cannot find the answer you are looking for, get in touch with us.
-        </p>
-        <a href="mailto:hello@yuseeplugs.com">CONTACT US</a>
-      </section>
-
-      <a className="back" href="/">← BACK TO SHOP</a>
-
-      <style jsx>{`
-        .page {
-          min-height: 100vh;
-          background: #090909;
-          color: #fff;
-          padding: 40px 7%;
-          font-family: Arial, Helvetica, sans-serif;
-        }
-        .logo {
-          color: #fff;
-          text-decoration: none;
-          font-size: 26px;
-          font-weight: 950;
-          letter-spacing: -1px;
-        }
-        header {
-          padding: 50px 0 35px;
-          border-bottom: 1px solid #333;
-        }
-        .eyebrow {
-          margin-top: 45px;
-          color: #aaa;
-          font-size: 11px;
-          letter-spacing: 2px;
-        }
-        h1 {
-          font-size: clamp(35px, 8vw, 65px);
-          font-weight: 950;
-          letter-spacing: -2px;
-          line-height: 1;
-        }
-        .intro {
-          color: #aaa;
-          max-width: 600px;
-          line-height: 1.8;
-        }
-        .questions {
-          max-width: 850px;
-        }
-        .questions details {
-          border-bottom: 1px solid #333;
-        }
-        .questions summary {
-          list-style: none;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 20px;
-          padding: 25px 0;
-          cursor: pointer;
-          font-size: 15px;
-          font-weight: 800;
-        }
-        .questions summary::-webkit-details-marker {
-          display: none;
-        }
-        .plus {
-          font-size: 25px;
-          font-weight: 300;
-          transition: transform .2s;
-        }
-        .questions details[open] .plus {
-          transform: rotate(45deg);
-        }
-        .answer {
-          padding: 0 0 22px;
-        }
-        .answer p {
-          margin: 0;
-          color: #aaa;
-          font-size: 14px;
-          line-height: 1.9;
-          max-width: 700px;
-        }
-        .contact {
-          padding: 40px 0;
-          margin-top: 20px;
-          border-top: 1px solid #333;
-          max-width: 850px;
-        }
-        .contact h2 {
-          font-size: 24px;
-          font-weight: 950;
-        }
-        .contact p {
-          color: #aaa;
-          font-size: 14px;
-          line-height: 1.8;
-        }
-        .contact a {
-          display: inline-block;
-          margin-top: 10px;
-          padding: 15px 25px;
-          background: #fff;
-          color: #000;
-          text-decoration: none;
-          font-size: 11px;
-          font-weight: 900;
-          letter-spacing: 1px;
-        }
-        .back {
-          display: inline-block;
-          margin-top: 20px;
-          color: #fff;
-          text-decoration: none;
-          font-size: 12px;
-          font-weight: 900;
-          letter-spacing: 1px;
-        }
-      `}</style>
     </main>
   );
 }
