@@ -218,9 +218,11 @@ export default function ElectronicsPage() {
       </header>
 
       <section className="intro">
-        <p className="eyebrow">YUSEE PLUGS COLLECTION</p>
-        <h1>ELECTRONICS</h1>
-        <p>Tech essentials. Everyday upgrades. Stand out.</p>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/10C02860-C206-4F1B-829F-DC2F8FA691B3.png"
+          alt="Yusee Plugs Electronics Collection"
+        />
       </section>
 
       <section className="catalogue">
@@ -449,23 +451,21 @@ export default function ElectronicsPage() {
           letter-spacing: 1px;
         }
         nav a:hover, nav a.active { color: #b8ff35; }
+
         .intro {
-          background: #b8ff35;
-          padding: 65px 7%;
+          width: 100%;
+          padding: 0;
+          margin: 0;
+          overflow: hidden;
+          background: #111;
         }
-        .eyebrow {
-          font-size: 11px;
-          font-weight: 900;
-          letter-spacing: 2px;
+        .intro img {
+          display: block;
+          width: 100%;
+          height: auto;
+          object-fit: contain;
         }
-        .intro h1 {
-          margin: 10px 0;
-          font-size: clamp(42px, 8vw, 82px);
-          font-weight: 1000;
-          letter-spacing: -4px;
-          line-height: 0.95;
-        }
-        .intro > p:last-child { font-size: 15px; }
+
         .catalogue { padding: 48px 5% 75px; }
         .catalogue-heading {
           display: flex;
@@ -658,8 +658,6 @@ export default function ElectronicsPage() {
           .product-image { height: 220px; }
         }
         @media (max-width: 600px) {
-          .intro { padding: 48px 6%; }
-          .intro h1 { letter-spacing: -2px; }
           .catalogue { padding: 35px 4%; }
           .filters { grid-template-columns: 1fr 1fr; }
           .filters input { grid-column: 1 / -1; }
