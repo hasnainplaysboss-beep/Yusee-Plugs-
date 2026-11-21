@@ -74,29 +74,45 @@ export default function Home() {
   const [adminSignedIn, setAdminSignedIn] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
 
+  // Load products.
   useEffect(() => {
+    let active = true;
+
     async function loadProducts() {
       try {
-        const response = await fetch("/api/products", { cache: "no-store" });
+        const response = await fetch("/api/products", {
+          cache: "no-store",
+        });
         const data = await response.json();
 
         if (!response.ok) {
           throw new Error(data.error || "Could not load products.");
         }
 
-        setProducts(Array.isArray(data.products) ? data.products : []);
+        if (active) {
+          setProducts(Array.isArray(data.products) ? data.products : []);
+        }
       } catch (error) {
-        setProductsError(
-          error instanceof Error ? error.message : "Could not load products."
-        );
+        if (active) {
+          setProductsError(
+            error instanceof Error ? error.message : "Could not load products."
+          );
+        }
       } finally {
-        setProductsLoading(false);
+        if (active) {
+          setProductsLoading(false);
+        }
       }
     }
 
     loadProducts();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
+  // Load the shopping bag from local storage.
   useEffect(() => {
     try {
       const stored = localStorage.getItem("yusee_bag");
@@ -112,65 +128,28 @@ export default function Home() {
     }
   }, []);
 
+  // Save the shopping bag.
   useEffect(() => {
     if (bagReady) {
       localStorage.setItem("yusee_bag", JSON.stringify(bag));
     }
   }, [bag, bagReady]);
 
-  
-useEffect(() => {
-  let active = true;
+  // Check customer and admin authentication.
+  useEffect(() => {
+    let active = true;
 
-  async function checkAuth() {
-    try {
-      const [customerResponse, adminResponse] = await Promise.all([
-        fetch("/api/auth/me", {
-          cache: "no-store",
-          credentials: "include",
-        }),
-        fetch("/api/admin/me", {
-          cache: "no-store",
-          credentials: "include",
-        }),
-      ]);
-
-      const customerData = customerResponse.ok
-        ? await customerResponse.json()
-        : { signedIn: false };
-
-      const adminData = adminResponse.ok
-        ? await adminResponse.json()
-        : { signedIn: false };
-
-      if (!active) return;
-
-      setCustomerSignedIn(customerData.signedIn === true);
-      setAdminSignedIn(adminData.signedIn === true);
-    } catch {
-      if (!active) return;
-
-      setCustomerSignedIn(false);
-      setAdminSignedIn(false);
-    }
-  }
-
-  checkAuth();
-
-  const handleFocus = () => checkAuth();
-
-  window.addEventListener("focus", handleFocus);
-
-  return () => {
-    active = false;
-    window.removeEventListener("focus", handleFocus);
-  };
-}, []);
-
+    async function checkAuth() {
       try {
         const [customerResponse, adminResponse] = await Promise.all([
-          fetch("/api/auth/me", { cache: "no-store" }),
-          fetch("/api/admin/me", { cache: "no-store" }),
+          fetch("/api/auth/me", {
+            cache: "no-store",
+            credentials: "include",
+          }),
+          fetch("/api/admin/me", {
+            cache: "no-store",
+            credentials: "include",
+          }),
         ]);
 
         const customerData = customerResponse.ok
@@ -181,26 +160,53 @@ useEffect(() => {
           ? await adminResponse.json()
           : { signedIn: false };
 
-        setCustomerSignedIn(customerData.signedIn === true);
+        if (!active) return;
 
-        // Only an authenticated admin can see the admin dashboard icon.
+        setCustomerSignedIn(customerData.signedIn === true);
         setAdminSignedIn(adminData.signedIn === true);
-      } catch {
+      } catch (error) {
+        if (!active) return;
+
+        console.error("AUTH CHECK ERROR:", error);
         setCustomerSignedIn(false);
         setAdminSignedIn(false);
       }
     }
 
     checkAuth();
+
+    const handleFocus = () => {
+      checkAuth();
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        checkAuth();
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("pageshow", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      active = false;
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("pageshow", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, []);
 
+  // Select a valid product variant when opening a product.
   useEffect(() => {
     if (!selectedProduct) return;
 
     const currentId = selectedVariants[selectedProduct.id];
 
     const chosen =
-      selectedProduct.variants.find(v => v.id === currentId && v.stock > 0) ||
+      selectedProduct.variants.find(
+        v => v.id === currentId && v.stock > 0
+      ) ||
       selectedProduct.variants.find(v => v.stock > 0) ||
       selectedProduct.variants[0];
 
@@ -375,7 +381,9 @@ useEffect(() => {
 
       window.location.href = data.url;
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Could not start checkout.");
+      alert(
+        error instanceof Error ? error.message : "Could not start checkout."
+      );
       setCheckoutLoading(false);
     }
   }
@@ -565,7 +573,6 @@ useEffect(() => {
         <Link href="/shop">ALL PRODUCTS</Link>
       </nav>
 
-      {/* BANNER: displays the complete image at its natural proportions */}
       <section className="hero">
         <img
           className="heroImage"
@@ -578,7 +585,6 @@ useEffect(() => {
           aria-label="Shop all products"
         />
       </section>
-
 
       <section className="featured" id="featured">
         <div className="sectionHeading">
@@ -1057,7 +1063,6 @@ useEffect(() => {
       )}
 
       <style jsx>{`
-
         .site {
           min-height: 100vh;
           background: #000;
@@ -1270,8 +1275,6 @@ useEffect(() => {
           font-weight: 900;
           letter-spacing: 1px;
         }
-
-        /* BANNER: SHOW THE COMPLETE IMAGE WITHOUT CROPPING */
 
         .hero {
           position: relative;
@@ -2256,6 +2259,3 @@ useEffect(() => {
     </main>
   );
 }
-
-
-      
