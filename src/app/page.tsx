@@ -118,8 +118,55 @@ export default function Home() {
     }
   }, [bag, bagReady]);
 
-  useEffect(() => {
-    async function checkAuth() {
+  
+useEffect(() => {
+  let active = true;
+
+  async function checkAuth() {
+    try {
+      const [customerResponse, adminResponse] = await Promise.all([
+        fetch("/api/auth/me", {
+          cache: "no-store",
+          credentials: "include",
+        }),
+        fetch("/api/admin/me", {
+          cache: "no-store",
+          credentials: "include",
+        }),
+      ]);
+
+      const customerData = customerResponse.ok
+        ? await customerResponse.json()
+        : { signedIn: false };
+
+      const adminData = adminResponse.ok
+        ? await adminResponse.json()
+        : { signedIn: false };
+
+      if (!active) return;
+
+      setCustomerSignedIn(customerData.signedIn === true);
+      setAdminSignedIn(adminData.signedIn === true);
+    } catch {
+      if (!active) return;
+
+      setCustomerSignedIn(false);
+      setAdminSignedIn(false);
+    }
+  }
+
+  checkAuth();
+
+  const handleFocus = () => checkAuth();
+
+  window.addEventListener("focus", handleFocus);
+
+  return () => {
+    active = false;
+    window.removeEventListener("focus", handleFocus);
+  };
+}, []);
+
       try {
         const [customerResponse, adminResponse] = await Promise.all([
           fetch("/api/auth/me", { cache: "no-store" }),
