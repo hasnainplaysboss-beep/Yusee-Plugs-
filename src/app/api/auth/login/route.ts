@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import { signCustomer } from "@/lib/auth";
+import { signCustomer } from "@/lib/customer-auth";
 
 export async function POST(req: Request) {
   try {
@@ -45,26 +45,27 @@ export async function POST(req: Request) {
       );
     }
 
-    // Customer login must not require the ADMIN role.
+    // Create a customer session, not an admin session.
     const token = await signCustomer(user.id, user.email);
 
-    const res = NextResponse.json({
+    const response = NextResponse.json({
       ok: true,
-      user: {
+      signedIn: true,
+      customer: {
         id: user.id,
         email: user.email
       }
     });
 
-    res.cookies.set("yusee_customer", token, {
+    response.cookies.set("yusee_customer", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge: 60 * 60 * 24 * 7
+      maxAge: 60 * 60 * 8
     });
 
-    return res;
+    return response;
 
   } catch (error) {
     console.error("CUSTOMER LOGIN ERROR:", error);
