@@ -955,6 +955,7 @@ export default function Home() {
         .searchResult span:nth-child(2){flex:1;font-size:13px;font-weight:700}
         .searchEmpty{font-size:11px;color:#aaa;padding:12px 0}
         .searchAllLink{display:flex;align-items:center;gap:9px;width:fit-content;margin:16px auto 0;color:#d9ff00;text-decoration:none;font-size:10px;font-weight:900;letter-spacing:1px}
+
         .hero{min-height:600px;height:min(690px,65vw);max-height:760px;position:relative;display:flex;align-items:center;overflow:hidden;background:#171717}
         .heroImage{position:absolute;inset:0;background-image:url("/FA104F8F-BE6B-4BFC-AEF4-8408AD0A4D6D.png");background-size:cover;background-position:center 38%;transform:scale(1.01)}
         .heroOverlay{position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,.78) 0%,rgba(0,0,0,.46) 42%,rgba(0,0,0,.05) 100%),linear-gradient(0deg,rgba(0,0,0,.5),transparent 28%)}
@@ -1072,6 +1073,7 @@ export default function Home() {
         .checkoutButton:disabled{opacity:.5}
         .emptyBag{min-height:65vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center}
         .emptyBag h3{font-size:14px;letter-spacing:1px}
+
         @media(max-width:760px){
           .announcement{padding:0 13px;font-size:8px;letter-spacing:1px}
           .header{height:65px;padding:0 13px}
@@ -1081,15 +1083,57 @@ export default function Home() {
           .quickNav{height:43px;justify-content:flex-start;gap:23px;padding:0 15px;overflow-x:auto}
           .quickNav a{font-size:9px;white-space:nowrap}
           .searchPanel{top:137px;padding:14px}
-          .hero{height:590px;min-height:590px;max-height:none}
-          .heroImage{background-position:60% center}
-          .heroOverlay{background:linear-gradient(90deg,rgba(0,0,0,.78),rgba(0,0,0,.16)),linear-gradient(0deg,rgba(0,0,0,.5),transparent 35%)}
-          .heroContent{padding:30px 22px}
-          .heroContent h1{font-size:clamp(56px,14vw,85px);letter-spacing:-3px}
-          .heroEyebrow{font-size:9px;letter-spacing:2px}
-          .heroSub{font-size:9px;letter-spacing:1.4px}
-          .heroBottom{left:18px;right:18px;bottom:20px;font-size:8px;gap:10px}
+
+          /* MOBILE HERO: show the complete banner image */
+          .hero{
+            height:auto;
+            min-height:0;
+            max-height:none;
+            display:flex;
+            flex-direction:column;
+            align-items:stretch;
+            overflow:hidden;
+            background:#090909;
+          }
+          .heroImage{
+            position:relative;
+            inset:auto;
+            display:block;
+            width:100%;
+            aspect-ratio:16 / 9;
+            flex:none;
+            background-image:url("/FA104F8F-BE6B-4BFC-AEF4-8408AD0A4D6D.png");
+            background-size:contain;
+            background-position:center;
+            background-repeat:no-repeat;
+            background-color:#090909;
+            transform:none;
+          }
+          .heroOverlay{display:none}
+          .heroContent{
+            position:relative;
+            z-index:1;
+            width:100%;
+            max-width:none;
+            padding:30px 22px 24px;
+            background:#090909;
+          }
+          .heroEyebrow{font-size:9px;letter-spacing:2px;margin-bottom:15px}
+          .heroContent h1{font-size:clamp(48px,12vw,72px);letter-spacing:-3px;line-height:.9}
+          .heroSub{font-size:9px;letter-spacing:1.4px;margin:18px 0 23px}
+          .heroButton{min-height:49px}
+          .heroBottom{
+            position:relative;
+            left:auto;
+            right:auto;
+            bottom:auto;
+            padding:13px 18px 18px;
+            background:#090909;
+            font-size:8px;
+            gap:10px;
+          }
           .heroProgress{width:75px}
+
           .categoryStrip{grid-template-columns:1fr 1fr}
           .categoryStrip a{min-height:65px;padding:0 13px;border-bottom:1px solid rgba(0,0,0,.18)}
           .categoryStrip a:nth-child(2){border-right:0}
