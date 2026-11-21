@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { signCustomer } from "@/lib/customer-auth";
+import { signAdmin } from "@/lib/admin-auth";
 
 export async function POST(req: Request) {
   try {
@@ -22,16 +23,9 @@ export async function POST(req: Request) {
       where: { email }
     });
 
-    if (!user) {
+    if (!user || !user.passwordHash) {
       return NextResponse.json(
-        { error: "Account not found." },
-        { status: 401 }
-      );
-    }
-
-    if (!user.passwordHash) {
-      return NextResponse.json(
-        { error: "No password is saved for this account." },
+        { error: "Incorrect email or password." },
         { status: 401 }
       );
     }
@@ -45,19 +39,22 @@ export async function POST(req: Request) {
       );
     }
 
-    // Create a customer session, not an admin session.
-    const token = await signCustomer(user.id, user.email);
+    const isAdmin = user.role === "ADMIN";
+
+    // Create the normal customer session.
+    const customerToken = await signCustomer(user.id, user.email);
 
     const response = NextResponse.json({
       ok: true,
       signedIn: true,
+      isAdmin,
       customer: {
         id: user.id,
         email: user.email
       }
     });
 
-    response.cookies.set("yusee_customer", token, {
+    response.cookies.set("yusee_customer", customerToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
@@ -65,10 +62,32 @@ export async function POST(req: Request) {
       maxAge: 60 * 60 * 8
     });
 
+    if (isAdmin) {
+      // Admins also receive an admin session.
+      const adminToken = await signAdmin(user.id, user.email);
+
+      response.cookies.set("yusee_admin", adminToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 8
+      });
+    } else {
+      // Prevent a previous admin session remaining on a shared browser.
+      response.cookies.set("yusee_admin", "", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 0
+      });
+    }
+
     return response;
 
   } catch (error) {
-    console.error("CUSTOMER LOGIN ERROR:", error);
+    console.error("LOGIN ERROR:", error);
 
     return NextResponse.json(
       { error: "Login failed. Please try again." },
