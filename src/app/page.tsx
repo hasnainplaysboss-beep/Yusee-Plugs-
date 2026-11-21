@@ -3,6 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   Menu,
   ShoppingBag,
@@ -11,6 +12,7 @@ import {
   ArrowUpRight,
   Heart,
   UserRound,
+  ShieldCheck,
 } from "lucide-react";
 
 type Variant = {
@@ -52,15 +54,6 @@ function normaliseDelivery(delivery: string | null | undefined) {
   return value;
 }
 
-function getGender(category: string | null) {
-  return category?.split("/")[0]?.trim().toLowerCase() || "";
-}
-
-function getCategory(category: string | null) {
-  const parts = category?.split("/") || [];
-  return parts.length > 1 ? parts.slice(1).join("/").trim() : "";
-}
-
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
@@ -70,7 +63,6 @@ export default function Home() {
   const [bagOpen, setBagOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [active, setActive] = useState("All");
 
   const [bag, setBag] = useState<BagLine[]>([]);
   const [bagReady, setBagReady] = useState(false);
@@ -165,46 +157,23 @@ export default function Home() {
     }
   }, [selectedProduct]);
 
-  const visible = useMemo(() => {
-    return products.filter(product => {
-      const gender = getGender(product.category);
-      const category = getCategory(product.category);
+  const featuredProducts = useMemo(
+    () => products.filter(product => product.featured === true),
+    [products]
+  );
 
-      const matchesFilter =
-        active === "All" ||
-        gender === active.toLowerCase() ||
-        category.toLowerCase() === active.toLowerCase();
+  const searchResults = useMemo(() => {
+    const search = query.trim().toLowerCase();
 
-      const matchesSearch = product.name
-        .toLowerCase()
-        .includes(query.toLowerCase());
+    if (!search) return [];
 
-      return matchesFilter && matchesSearch;
-    });
-  }, [products, active, query]);
+    return products
+      .filter(product => product.name.toLowerCase().includes(search))
+      .slice(0, 6);
+  }, [products, query]);
 
-  const featuredProducts = products.filter(product => product.featured === true);
-
-  function selectGender(gender: "men" | "women") {
-    setActive(gender === "men" ? "Men" : "Women");
-    setQuery("");
+  function closeMenu() {
     setMenuOpen(false);
-    setSearchOpen(false);
-
-    setTimeout(() => {
-      document.getElementById("shop")?.scrollIntoView({ behavior: "smooth" });
-    }, 50);
-  }
-
-  function selectElectronics() {
-    setActive("Electronics");
-    setQuery("");
-    setMenuOpen(false);
-    setSearchOpen(false);
-
-    setTimeout(() => {
-      document.getElementById("shop")?.scrollIntoView({ behavior: "smooth" });
-    }, 50);
   }
 
   function getSelectedVariant(product: Product) {
@@ -390,65 +359,174 @@ export default function Home() {
     return `£${(cheapest / 100).toFixed(2)}`;
   }
 
+  function openSearchProduct(product: Product) {
+    setSelectedProduct(product);
+    setSearchOpen(false);
+    setQuery("");
+  }
+
   return (
     <main className="site">
+      <div className="announcement">
+        <span>PLUG IN. STAND OUT.</span>
+        <span>DISCOVER THE COLLECTION</span>
+      </div>
+
       <header className="header">
-        <button className="headerIcon menuIcon" aria-label="Open menu" onClick={() => setMenuOpen(true)}>
-          <Menu size={27} strokeWidth={1.7} />
+        <button
+          className="headerIcon menuIcon"
+          aria-label="Open menu"
+          onClick={() => setMenuOpen(true)}
+        >
+          <Menu size={28} strokeWidth={2} />
         </button>
 
-        <Link href="/" className="logo">YUSEE PLUGS</Link>
+        <Link href="/" className="logo" aria-label="Yusee Plugs home">
+          <Image
+            src="/FAAEF0EE-B20E-425B-AC66-5DA42ADAF006.png"
+            alt="Yusee Plugs"
+            width={170}
+            height={65}
+            priority
+            className="logoImage"
+          />
+        </Link>
 
         <div className="headerRight">
-          <button className="headerIcon" aria-label="Search" onClick={() => setSearchOpen(old => !old)}>
-            <Search size={23} strokeWidth={1.7} />
+          <button
+            className="headerIcon"
+            aria-label="Search"
+            onClick={() => setSearchOpen(old => !old)}
+          >
+            <Search size={23} strokeWidth={2} />
           </button>
 
-          <Link className="headerIcon" aria-label="My account" href={adminSignedIn ? "/admin" : customerSignedIn ? "/account" : "/login"}>
-            <UserRound size={23} strokeWidth={1.7} />
+          <Link
+            className="headerIcon"
+            aria-label="My account"
+            href={customerSignedIn ? "/account" : "/login"}
+          >
+            <UserRound size={23} strokeWidth={2} />
           </Link>
 
-          <button className="headerIcon bagIcon" aria-label="Open shopping bag" onClick={() => setBagOpen(true)}>
-            <ShoppingBag size={23} strokeWidth={1.7} />
+          {adminSignedIn && (
+            <Link className="headerIcon adminIcon" aria-label="Admin dashboard" href="/admin">
+              <ShieldCheck size={22} strokeWidth={2} />
+            </Link>
+          )}
+
+          <button
+            className="headerIcon bagIcon"
+            aria-label="Open shopping bag"
+            onClick={() => setBagOpen(true)}
+          >
+            <ShoppingBag size={23} strokeWidth={2} />
             <span className="bagCount">{bagCount}</span>
           </button>
         </div>
       </header>
 
-      <nav className="genderNav">
-        <div className="genderRow">
-          <button onClick={() => selectGender("men")}>MENS</button>
-          <button onClick={() => selectGender("women")}>WOMENS</button>
-        </div>
-        <button className="electronicsNav" onClick={selectElectronics}>ELECTRONICS</button>
-      </nav>
-
       {searchOpen && (
         <div className="searchPanel">
-          <Search size={19} />
-          <input autoFocus placeholder="Search products..." value={query} onChange={e => { setQuery(e.target.value); setActive("All"); }} />
-          <button aria-label="Close search" onClick={() => { setSearchOpen(false); setQuery(""); }}>
-            <X size={20} />
-          </button>
+          <div className="searchInputWrap">
+            <Search size={20} />
+            <input
+              autoFocus
+              placeholder="Search products..."
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+            />
+            <button
+              aria-label="Close search"
+              onClick={() => {
+                setSearchOpen(false);
+                setQuery("");
+              }}
+            >
+              <X size={21} />
+            </button>
+          </div>
+
+          {query.trim() && (
+            <div className="searchResults">
+              {searchResults.length > 0 ? (
+                searchResults.map(product => (
+                  <button
+                    key={product.id}
+                    className="searchResult"
+                    onClick={() => openSearchProduct(product)}
+                  >
+                    {product.imageUrl ? (
+                      <img src={product.imageUrl} alt={product.name} />
+                    ) : (
+                      <span className="searchNoImage">YP</span>
+                    )}
+                    <span>{product.name}</span>
+                    <ArrowUpRight size={17} />
+                  </button>
+                ))
+              ) : (
+                <p className="searchEmpty">NO MATCHING PRODUCTS FOUND.</p>
+              )}
+            </div>
+          )}
+
+          <Link className="searchAllLink" href="/shop" onClick={() => setSearchOpen(false)}>
+            SEARCH THE FULL COLLECTION <ArrowUpRight size={16} />
+          </Link>
         </div>
       )}
+
+      <nav className="quickNav">
+        <Link href="/mens">MENS</Link>
+        <Link href="/womens">WOMENS</Link>
+        <Link href="/electronics">ELECTRONICS</Link>
+        <Link href="/accessories">ACCESSORIES</Link>
+        <Link href="/shop">ALL PRODUCTS</Link>
+      </nav>
 
       <section className="hero">
         <div className="heroImage" />
         <div className="heroOverlay" />
+
         <div className="heroContent">
-          <p className="heroEyebrow">YUSEE PLUGS</p>
-          <h1>SHOP<br />MEN</h1>
-          <p className="heroSub">PREMIUM STREETWEAR. ELEVATED.</p>
-          <button className="heroButton" onClick={() => selectGender("men")}>
-            SHOP MEN <ArrowUpRight size={20} />
-          </button>
+          <p className="heroEyebrow">YUSEE PLUGS / NEW COLLECTION</p>
+          <h1>PLUG IN.<br />STAND OUT.</h1>
+          <p className="heroSub">YOUR STYLE. YOUR RULES.</p>
+
+          <Link className="heroButton" href="/shop">
+            SHOP NOW <ArrowUpRight size={21} />
+          </Link>
         </div>
+
         <div className="heroBottom">
-          <span>01 / 01</span>
+          <span>YUSEE PLUGS</span>
           <span className="heroProgress"><i /></span>
-          <span className="heroCollection">YUSEE PLUGS / NEW COLLECTION</span>
+          <span>BUILT FOR YOUR EVERYDAY</span>
         </div>
+      </section>
+
+      <section className="categoryStrip">
+        <Link href="/mens">
+          <span>01</span>
+          <b>SHOP MEN</b>
+          <ArrowUpRight size={19} />
+        </Link>
+        <Link href="/womens">
+          <span>02</span>
+          <b>SHOP WOMEN</b>
+          <ArrowUpRight size={19} />
+        </Link>
+        <Link href="/electronics">
+          <span>03</span>
+          <b>ELECTRONICS</b>
+          <ArrowUpRight size={19} />
+        </Link>
+        <Link href="/accessories">
+          <span>04</span>
+          <b>ACCESSORIES</b>
+          <ArrowUpRight size={19} />
+        </Link>
       </section>
 
       <section className="featured" id="featured">
@@ -457,9 +535,10 @@ export default function Home() {
             <p className="eyebrow">THE LATEST ROTATION</p>
             <h2>FEATURED PRODUCTS</h2>
           </div>
-          <button className="viewAll" onClick={() => { setActive("All"); document.getElementById("shop")?.scrollIntoView({ behavior: "smooth" }); }}>
-            VIEW ALL <ArrowUpRight size={17} />
-          </button>
+
+          <Link className="viewAll" href="/shop">
+            VIEW ALL <ArrowUpRight size={18} />
+          </Link>
         </div>
 
         {productsLoading ? (
@@ -476,14 +555,40 @@ export default function Home() {
 
               return (
                 <article className="featuredCard" key={product.id}>
-                  <button className="featuredImage" onClick={() => setSelectedProduct(product)} aria-label={`View ${product.name}`}>
-                    {product.imageUrl ? <img src={product.imageUrl} alt={product.name} /> : <span className="noImage">YUSEE PLUGS</span>}
+                  <button
+                    className="featuredImage"
+                    onClick={() => setSelectedProduct(product)}
+                    aria-label={`View ${product.name}`}
+                  >
+                    {product.imageUrl ? (
+                      <img src={product.imageUrl} alt={product.name} />
+                    ) : (
+                      <span className="noImage">YUSEE PLUGS</span>
+                    )}
                     {!inStock && <span className="soldOut">SOLD OUT</span>}
                   </button>
-                  <button className={`saveButton ${saved.includes(product.id) ? "isSaved" : ""}`} aria-label="Save product" onClick={() => setSaved(old => old.includes(product.id) ? old.filter(id => id !== product.id) : [...old, product.id])}>
-                    <Heart size={21} fill={saved.includes(product.id) ? "currentColor" : "none"} />
+
+                  <button
+                    className={`saveButton ${saved.includes(product.id) ? "isSaved" : ""}`}
+                    aria-label="Save product"
+                    onClick={() =>
+                      setSaved(old =>
+                        old.includes(product.id)
+                          ? old.filter(id => id !== product.id)
+                          : [...old, product.id]
+                      )
+                    }
+                  >
+                    <Heart
+                      size={21}
+                      fill={saved.includes(product.id) ? "currentColor" : "none"}
+                    />
                   </button>
-                  <button className="featuredInfo" onClick={() => setSelectedProduct(product)}>
+
+                  <button
+                    className="featuredInfo"
+                    onClick={() => setSelectedProduct(product)}
+                  >
                     <span>{product.name}</span>
                     {price && <b>{price}</b>}
                   </button>
@@ -494,53 +599,14 @@ export default function Home() {
         )}
       </section>
 
-      <section className="shopSection" id="shop">
-        <div className="sectionHeading">
-          <div>
-            <p className="eyebrow">SHOP THE COLLECTION</p>
-            <h2>{active === "All" ? "ALL PRODUCTS" : `${active.toUpperCase()} COLLECTION`}</h2>
-          </div>
-          <span className="pieceCount">{productsLoading ? "..." : `${visible.length} ITEMS`}</span>
+      <section className="shopCallout">
+        <div>
+          <p className="eyebrow">FIND YOUR NEXT FAVOURITE</p>
+          <h2>THE COLLECTION<br />IS YOURS TO EXPLORE.</h2>
         </div>
-
-        <div className="shopFilters">
-          <button className={active === "All" ? "selectedFilter" : ""} onClick={() => setActive("All")}>ALL</button>
-          <button className={active === "Men" ? "selectedFilter" : ""} onClick={() => setActive("Men")}>MENS</button>
-          <button className={active === "Women" ? "selectedFilter" : ""} onClick={() => setActive("Women")}>WOMENS</button>
-          <button className={active === "Electronics" ? "selectedFilter" : ""} onClick={() => setActive("Electronics")}>ELECTRONICS</button>
-          {query && <span>SEARCH: {query}</span>}
-        </div>
-
-        {productsLoading ? (
-          <p className="statusMessage">LOADING PRODUCTS...</p>
-        ) : productsError ? (
-          <p className="statusMessage">{productsError}</p>
-        ) : visible.length === 0 ? (
-          <p className="statusMessage">NO PRODUCTS FOUND.</p>
-        ) : (
-          <div className="shopGrid">
-            {visible.map(product => {
-              const price = productPrice(product);
-              const inStock = product.variants.some(v => v.stock > 0);
-
-              return (
-                <article className="shopCard" key={product.id}>
-                  <button className="shopImage" onClick={() => setSelectedProduct(product)} aria-label={`View ${product.name}`}>
-                    {product.imageUrl ? <img src={product.imageUrl} alt={product.name} /> : <span className="noImage">YUSEE PLUGS</span>}
-                    {!inStock && <span className="soldOut">SOLD OUT</span>}
-                  </button>
-                  <button className={`saveButton ${saved.includes(product.id) ? "isSaved" : ""}`} aria-label="Save product" onClick={() => setSaved(old => old.includes(product.id) ? old.filter(id => id !== product.id) : [...old, product.id])}>
-                    <Heart size={20} fill={saved.includes(product.id) ? "currentColor" : "none"} />
-                  </button>
-                  <button className="shopInfo" onClick={() => setSelectedProduct(product)}>
-                    <span>{product.name}</span>
-                    {price && <b>{price}</b>}
-                  </button>
-                </article>
-              );
-            })}
-          </div>
-        )}
+        <Link href="/shop">
+          SHOP ALL PRODUCTS <ArrowUpRight size={20} />
+        </Link>
       </section>
 
       <footer className="footer">
@@ -598,27 +664,56 @@ export default function Home() {
 
       {selectedProduct && (
         <div className="modalBackdrop" onClick={() => setSelectedProduct(null)}>
-          <section className="productModal" role="dialog" aria-modal="true" aria-label={selectedProduct.name} onClick={e => e.stopPropagation()}>
-            <button className="modalClose" aria-label="Close product" onClick={() => setSelectedProduct(null)}>
+          <section
+            className="productModal"
+            role="dialog"
+            aria-modal="true"
+            aria-label={selectedProduct.name}
+            onClick={e => e.stopPropagation()}
+          >
+            <button
+              className="modalClose"
+              aria-label="Close product"
+              onClick={() => setSelectedProduct(null)}
+            >
               <X />
             </button>
+
             <div className="modalImage">
-              {selectedProduct.imageUrl ? <img src={selectedProduct.imageUrl} alt={selectedProduct.name} /> : <span className="noImage">YUSEE PLUGS</span>}
+              {selectedProduct.imageUrl ? (
+                <img src={selectedProduct.imageUrl} alt={selectedProduct.name} />
+              ) : (
+                <span className="noImage">YUSEE PLUGS</span>
+              )}
             </div>
+
             <div className="modalDetails">
               <p className="eyebrow">YUSEE PLUGS</p>
               <h2>{selectedProduct.name}</h2>
-              {modalVariant && <strong className="modalPrice">£{(modalVariant.pricePence / 100).toFixed(2)}</strong>}
-              {selectedProduct.description && <p className="modalDescription">{selectedProduct.description}</p>}
+
+              {modalVariant && (
+                <strong className="modalPrice">
+                  £{(modalVariant.pricePence / 100).toFixed(2)}
+                </strong>
+              )}
+
+              {selectedProduct.description && (
+                <p className="modalDescription">{selectedProduct.description}</p>
+              )}
 
               {modalSizes.length > 0 && (
                 <label className="variantLabel">
                   SIZE
-                  <select value={modalVariant?.size || ""} onChange={e => changeSize(selectedProduct, e.target.value)}>
+                  <select
+                    value={modalVariant?.size || ""}
+                    onChange={e => changeSize(selectedProduct, e.target.value)}
+                  >
                     {modalSizes.map(size => (
                       <option key={size} value={size}>
                         {size}
-                        {!selectedProduct.variants.some(v => v.size === size && v.stock > 0) ? " — SOLD OUT" : ""}
+                        {!selectedProduct.variants.some(v => v.size === size && v.stock > 0)
+                          ? " — SOLD OUT"
+                          : ""}
                       </option>
                     ))}
                   </select>
@@ -628,11 +723,16 @@ export default function Home() {
               {modalColours.length > 0 && (
                 <label className="variantLabel">
                   COLOUR
-                  <select value={modalVariant?.colour || ""} onChange={e => changeColour(selectedProduct, e.target.value)}>
+                  <select
+                    value={modalVariant?.colour || ""}
+                    onChange={e => changeColour(selectedProduct, e.target.value)}
+                  >
                     {modalColours.map(colour => (
                       <option key={colour} value={colour}>
                         {colour}
-                        {!selectedProduct.variants.some(v => v.colour === colour && v.stock > 0) ? " — SOLD OUT" : ""}
+                        {!selectedProduct.variants.some(v => v.colour === colour && v.stock > 0)
+                          ? " — SOLD OUT"
+                          : ""}
                       </option>
                     ))}
                   </select>
@@ -642,11 +742,16 @@ export default function Home() {
               {modalDeliveries.length > 0 && (
                 <label className="variantLabel">
                   DELIVERY
-                  <select value={modalVariant?.delivery || ""} onChange={e => changeDelivery(selectedProduct, e.target.value)}>
+                  <select
+                    value={modalVariant?.delivery || ""}
+                    onChange={e => changeDelivery(selectedProduct, e.target.value)}
+                  >
                     {modalDeliveries.map(delivery => (
                       <option key={delivery} value={delivery}>
                         {delivery}
-                        {!selectedProduct.variants.some(v => v.delivery === delivery && v.stock > 0) ? " — SOLD OUT" : ""}
+                        {!selectedProduct.variants.some(v => v.delivery === delivery && v.stock > 0)
+                          ? " — SOLD OUT"
+                          : ""}
                       </option>
                     ))}
                   </select>
@@ -654,19 +759,36 @@ export default function Home() {
               )}
 
               <p className={`stockText ${modalVariant?.stock ? "inStock" : "outStock"}`}>
-                {modalVariant ? modalVariant.stock > 0 ? `${modalVariant.stock} AVAILABLE` : "THIS OPTION IS SOLD OUT" : "NO OPTIONS AVAILABLE"}
+                {modalVariant
+                  ? modalVariant.stock > 0
+                    ? `${modalVariant.stock} AVAILABLE`
+                    : "THIS OPTION IS SOLD OUT"
+                  : "NO OPTIONS AVAILABLE"}
               </p>
 
-              <button className="modalPrimary" disabled={!modalVariant || modalVariant.stock < 1} onClick={() => modalVariant && addToBag(modalVariant)}>
+              <button
+                className="modalPrimary"
+                disabled={!modalVariant || modalVariant.stock < 1}
+                onClick={() => modalVariant && addToBag(modalVariant)}
+              >
                 ADD TO BAG
               </button>
 
-              <button className="modalSecondary" disabled={checkoutLoading || !modalVariant || modalVariant.stock < 1} onClick={() => modalVariant && startCheckout([{ variantId: modalVariant.id, quantity: 1 }])}>
+              <button
+                className="modalSecondary"
+                disabled={checkoutLoading || !modalVariant || modalVariant.stock < 1}
+                onClick={() =>
+                  modalVariant &&
+                  startCheckout([{ variantId: modalVariant.id, quantity: 1 }])
+                }
+              >
                 {checkoutLoading ? "CONNECTING..." : "BUY NOW"}
               </button>
 
               <p className="deliveryNote">
-                {modalVariant?.delivery ? `${modalVariant.delivery.toUpperCase()} DELIVERY AVAILABLE` : "DELIVERY AVAILABLE"}
+                {modalVariant?.delivery
+                  ? `${modalVariant.delivery.toUpperCase()} DELIVERY AVAILABLE`
+                  : "DELIVERY AVAILABLE"}
               </p>
             </div>
           </section>
@@ -674,15 +796,51 @@ export default function Home() {
       )}
 
       {menuOpen && (
-        <div className="drawerBackdrop" onClick={() => setMenuOpen(false)}>
+        <div className="drawerBackdrop" onClick={closeMenu}>
           <aside className="drawer menuDrawer" onClick={e => e.stopPropagation()}>
             <div className="drawerHeader">
-              <Link href="/" className="logo">YUSEE PLUGS</Link>
-              <button className="headerIcon" aria-label="Close menu" onClick={() => setMenuOpen(false)}><X /></button>
+              <Link href="/" className="drawerLogo" onClick={closeMenu}>
+                <Image
+                  src="/FAAEF0EE-B20E-425B-AC66-5DA42ADAF006.png"
+                  alt="Yusee Plugs"
+                  width={145}
+                  height={55}
+                />
+              </Link>
+              <button
+                className="headerIcon"
+                aria-label="Close menu"
+                onClick={closeMenu}
+              >
+                <X />
+              </button>
             </div>
-            <div className="drawerGroup"><button onClick={() => selectGender("men")}>MENS</button></div>
-            <div className="drawerGroup"><button onClick={() => selectGender("women")}>WOMENS</button></div>
-            <div className="drawerGroup"><button onClick={selectElectronics}>ELECTRONICS</button></div>
+
+            <p className="drawerEyebrow">SHOP BY CATEGORY</p>
+
+            <Link className="drawerLink" href="/mens" onClick={closeMenu}>
+              <span>01</span> MEN'S <ArrowUpRight />
+            </Link>
+            <Link className="drawerLink" href="/womens" onClick={closeMenu}>
+              <span>02</span> WOMEN'S <ArrowUpRight />
+            </Link>
+            <Link className="drawerLink" href="/electronics" onClick={closeMenu}>
+              <span>03</span> ELECTRONICS <ArrowUpRight />
+            </Link>
+            <Link className="drawerLink" href="/accessories" onClick={closeMenu}>
+              <span>04</span> ACCESSORIES <ArrowUpRight />
+            </Link>
+            <Link className="drawerLink" href="/shop" onClick={closeMenu}>
+              <span>05</span> ALL PRODUCTS <ArrowUpRight />
+            </Link>
+            <Link className="drawerLink saleLink" href="/shop" onClick={closeMenu}>
+              <span>06</span> SHOP THE COLLECTION <ArrowUpRight />
+            </Link>
+
+            <div className="drawerBottom">
+              <p>PLUG IN. STAND OUT.</p>
+              <span>YUSEE PLUGS</span>
+            </div>
           </aside>
         </div>
       )}
@@ -692,7 +850,13 @@ export default function Home() {
           <aside className="drawer bagDrawer" onClick={e => e.stopPropagation()}>
             <div className="drawerHeader">
               <h2>YOUR BAG ({bagCount})</h2>
-              <button className="headerIcon" aria-label="Close bag" onClick={() => setBagOpen(false)}><X /></button>
+              <button
+                className="headerIcon"
+                aria-label="Close bag"
+                onClick={() => setBagOpen(false)}
+              >
+                <X />
+              </button>
             </div>
 
             {bagItems.length === 0 ? (
@@ -700,21 +864,36 @@ export default function Home() {
                 <ShoppingBag size={36} />
                 <h3>YOUR BAG IS EMPTY</h3>
                 <p>Find your next favourite.</p>
-                <button className="checkoutButton" onClick={() => setBagOpen(false)}>CONTINUE SHOPPING</button>
+                <button className="checkoutButton" onClick={() => setBagOpen(false)}>
+                  CONTINUE SHOPPING
+                </button>
               </div>
             ) : (
               <>
                 <div className="bagLines">
                   {bagItems.map(item => (
                     <div className="bagLine" key={item.variantId}>
-                      {item.product.imageUrl ? <img src={item.product.imageUrl} alt={item.product.name} /> : <div className="bagNoImage">YUSEE</div>}
+                      {item.product.imageUrl ? (
+                        <img src={item.product.imageUrl} alt={item.product.name} />
+                      ) : (
+                        <div className="bagNoImage">YUSEE</div>
+                      )}
+
                       <div className="bagLineDetails">
                         <b>{item.product.name}</b>
                         {item.variant.size && <span>Size: {item.variant.size}</span>}
                         {item.variant.colour && <span>Colour: {item.variant.colour}</span>}
                         {item.variant.delivery && <span>Delivery: {item.variant.delivery}</span>}
-                        <span>£{(item.variant.pricePence / 100).toFixed(2)} × {item.quantity}</span>
-                        <button onClick={() => setBag(old => old.filter(line => line.variantId !== item.variantId))}>REMOVE</button>
+                        <span>
+                          £{(item.variant.pricePence / 100).toFixed(2)} × {item.quantity}
+                        </span>
+                        <button
+                          onClick={() =>
+                            setBag(old => old.filter(line => line.variantId !== item.variantId))
+                          }
+                        >
+                          REMOVE
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -725,8 +904,22 @@ export default function Home() {
                     <span>SUBTOTAL</span>
                     <b>£{(total / 100).toFixed(2)}</b>
                   </div>
-                  <p>Delivery is included in the selected product price. Your delivery type is shown beside each item.</p>
-                  <button className="checkoutButton" disabled={checkoutLoading} onClick={() => startCheckout(bagItems.map(item => ({ variantId: item.variantId, quantity: item.quantity })))}>
+                  <p>
+                    Delivery is included in the selected product price. Your delivery
+                    type is shown beside each item.
+                  </p>
+                  <button
+                    className="checkoutButton"
+                    disabled={checkoutLoading}
+                    onClick={() =>
+                      startCheckout(
+                        bagItems.map(item => ({
+                          variantId: item.variantId,
+                          quantity: item.quantity,
+                        }))
+                      )
+                    }
+                  >
                     {checkoutLoading ? "CONNECTING TO STRIPE..." : "CHECKOUT"}
                   </button>
                 </div>
@@ -739,59 +932,70 @@ export default function Home() {
       <style jsx>{`
         .site{min-height:100vh;background:#090909;color:#f7f7f7;font-family:Arial,Helvetica,sans-serif}
         button{font:inherit}
-        .header{height:66px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:0 26px;background:#050505;border-bottom:1px solid #292929;position:relative;z-index:5}
-        .logo{color:#fff;text-decoration:none;font-size:clamp(19px,3vw,27px);font-weight:950;letter-spacing:-1px;white-space:nowrap}
-        .headerIcon{border:0;background:transparent;color:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:8px;position:relative;text-decoration:none}
+        .announcement{height:29px;background:#d9ff00;color:#080808;display:flex;align-items:center;justify-content:space-between;padding:0 4%;font-size:9px;font-weight:950;letter-spacing:1.5px}
+        .header{height:76px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:0 4%;background:#050505;border-bottom:1px solid #292929;position:relative;z-index:5}
+        .logo{display:flex;align-items:center;justify-content:center}
+        .logoImage{width:155px;height:58px;object-fit:contain}
+        .headerIcon{border:0;background:transparent;color:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:9px;position:relative;text-decoration:none}
         .menuIcon{justify-self:start;padding-left:0}
-        .headerRight{justify-self:end;display:flex;align-items:center;gap:13px}
-        .bagCount{position:absolute;top:0;right:0;min-width:16px;height:16px;padding:0 4px;border-radius:20px;background:#fff;color:#000;font-size:10px;font-weight:800;display:grid;place-items:center}
-        .genderNav{display:flex;flex-direction:column;padding:12px 18px;background:#080808;border-bottom:1px solid #333}
-        .genderRow{display:grid;grid-template-columns:1fr 1fr;width:100%}
-        .genderRow button{min-height:52px;background:transparent;border:0;color:#fff;font-size:16px;font-weight:900;cursor:pointer;letter-spacing:1px}
-        .genderRow button+button{border-left:1px solid #333}
-        .electronicsNav{display:block;width:100%;min-height:52px;padding:15px;background:#fff;color:#080808;border:0;font-size:15px;font-weight:950;letter-spacing:1.5px;cursor:pointer;transition:background .2s,color .2s}
-        .electronicsNav:hover{background:#d9d9d9}
-        .searchPanel{display:flex;align-items:center;gap:12px;padding:14px 24px;background:#171717;border-bottom:1px solid #333}
-        .searchPanel input{flex:1;min-width:0;background:transparent;color:#fff;border:0;outline:none;font-size:15px}
-        .searchPanel button{border:0;background:transparent;color:#fff;cursor:pointer}
-        .hero{min-height:min(690px,76vw);height:590px;max-height:78vh;position:relative;display:flex;align-items:center;overflow:hidden;background:#171717}
-        .heroImage{position:absolute;inset:0;background-image:url("/F126698D-BFBB-4540-9DFD-67723C1C9EC3.png");background-size:cover;background-position:center 38%;transform:scale(1.01)}
-        .heroOverlay{position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,.76) 0%,rgba(0,0,0,.48) 43%,rgba(0,0,0,.08) 100%),linear-gradient(0deg,rgba(0,0,0,.48),transparent 28%)}
-        .heroContent{position:relative;z-index:1;padding:50px 5%;max-width:590px}
-        .heroEyebrow{font-size:13px;letter-spacing:2.5px;margin:0 0 18px}
-        .heroContent h1{font-size:clamp(66px,10vw,112px);line-height:.82;letter-spacing:-5px;font-weight:950;margin:0}
-        .heroSub{font-size:11px;letter-spacing:2px;margin:22px 0 30px}
-        .heroButton{min-width:220px;min-height:54px;padding:0 22px;display:inline-flex;align-items:center;justify-content:space-between;gap:28px;color:#fff;background:transparent;border:1px solid #fff;font-size:13px;font-weight:800;cursor:pointer}
-        .heroButton:hover{background:#fff;color:#000}
-        .heroBottom{position:absolute;z-index:1;bottom:24px;left:3.5%;right:3.5%;display:flex;align-items:center;gap:16px;font-size:11px;letter-spacing:1px}
-        .heroProgress{width:150px;height:3px;background:rgba(255,255,255,.3)}
-        .heroProgress i{display:block;width:33%;height:100%;background:#fff}
-        .heroCollection{margin-left:auto;opacity:.8}
-        .featured,.shopSection{padding:58px 3.5%}
-        .featured{background:#090909}
-        .sectionHeading{display:flex;justify-content:space-between;align-items:end;gap:18px;margin-bottom:26px}
-        .eyebrow{color:#aaa;font-size:10px;letter-spacing:2.5px;margin:0 0 8px}
-        .sectionHeading h2{font-size:clamp(25px,4vw,39px);line-height:1;letter-spacing:-1.3px;font-weight:950;margin:0}
-        .viewAll{color:#fff;background:transparent;border:0;display:flex;align-items:center;gap:12px;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap}
-        .featuredGrid,.shopGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px}
-        .featuredCard,.shopCard{position:relative;min-width:0}
-        .featuredImage,.shopImage{position:relative;display:block;width:100%;aspect-ratio:1/1.08;padding:0;overflow:hidden;border:0;background:#242424;cursor:pointer;text-align:center}
-        .featuredImage img,.shopImage img{display:block;width:100%;height:100%;object-fit:cover;transition:transform .5s}
-        .featuredImage:hover img,.shopImage:hover img{transform:scale(1.04)}
+        .headerRight{justify-self:end;display:flex;align-items:center;gap:12px}
+        .bagCount{position:absolute;top:0;right:0;min-width:17px;height:17px;padding:0 4px;border-radius:20px;background:#d9ff00;color:#000;font-size:10px;font-weight:900;display:grid;place-items:center}
+        .adminIcon{color:#d9ff00}
+        .quickNav{height:49px;display:flex;align-items:center;justify-content:center;gap:clamp(18px,4vw,55px);background:#101010;border-bottom:1px solid #303030}
+        .quickNav a{color:#fff;text-decoration:none;font-size:11px;font-weight:950;letter-spacing:1.3px;transition:color .2s}
+        .quickNav a:hover{color:#d9ff00}
+        .searchPanel{position:absolute;z-index:20;top:154px;left:0;right:0;background:#111;border-bottom:1px solid #383838;padding:18px 4%;box-shadow:0 15px 25px rgba(0,0,0,.35)}
+        .searchInputWrap{display:flex;align-items:center;gap:13px;max-width:900px;margin:auto}
+        .searchInputWrap input{flex:1;min-width:0;background:transparent;color:#fff;border:0;outline:none;font-size:16px;padding:12px 0}
+        .searchInputWrap button{border:0;background:transparent;color:#fff;cursor:pointer}
+        .searchResults{max-width:900px;margin:12px auto 0}
+        .searchResult{width:100%;display:flex;align-items:center;gap:14px;padding:9px 0;background:transparent;border:0;border-bottom:1px solid #333;color:#fff;text-align:left;cursor:pointer}
+        .searchResult img,.searchNoImage{width:48px;height:52px;object-fit:cover;background:#292929}
+        .searchNoImage{display:grid;place-items:center;font-weight:900}
+        .searchResult span:nth-child(2){flex:1;font-size:13px;font-weight:700}
+        .searchEmpty{font-size:11px;color:#aaa;padding:12px 0}
+        .searchAllLink{display:flex;align-items:center;gap:9px;width:fit-content;margin:16px auto 0;color:#d9ff00;text-decoration:none;font-size:10px;font-weight:900;letter-spacing:1px}
+        .hero{min-height:600px;height:min(690px,65vw);max-height:760px;position:relative;display:flex;align-items:center;overflow:hidden;background:#171717}
+        .heroImage{position:absolute;inset:0;background-image:url("/FA104F8F-BE6B-4BFC-AEF4-8408AD0A4D6D.png");background-size:cover;background-position:center 38%;transform:scale(1.01)}
+        .heroOverlay{position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,.78) 0%,rgba(0,0,0,.46) 42%,rgba(0,0,0,.05) 100%),linear-gradient(0deg,rgba(0,0,0,.5),transparent 28%)}
+        .heroContent{position:relative;z-index:1;padding:50px 6%;max-width:720px}
+        .heroEyebrow{font-size:11px;font-weight:800;letter-spacing:3px;margin:0 0 22px}
+        .heroContent h1{font-size:clamp(62px,9vw,112px);line-height:.86;letter-spacing:-5px;font-weight:950;margin:0}
+        .heroSub{font-size:11px;font-weight:800;letter-spacing:2.5px;margin:25px 0 32px}
+        .heroButton{min-width:205px;min-height:55px;padding:0 22px;display:inline-flex;align-items:center;justify-content:space-between;gap:28px;color:#080808;background:#d9ff00;border:1px solid #d9ff00;text-decoration:none;font-size:12px;font-weight:950;letter-spacing:1px;transition:background .2s,color .2s}
+        .heroButton:hover{background:#fff;border-color:#fff}
+        .heroBottom{position:absolute;z-index:1;bottom:25px;left:4%;right:4%;display:flex;align-items:center;gap:16px;font-size:10px;font-weight:800;letter-spacing:1.5px}
+        .heroProgress{width:140px;height:3px;background:rgba(255,255,255,.3)}
+        .heroProgress i{display:block;width:100%;height:100%;background:#d9ff00}
+        .heroBottom span:last-child{margin-left:auto}
+        .categoryStrip{display:grid;grid-template-columns:repeat(4,1fr);background:#d9ff00;color:#080808}
+        .categoryStrip a{min-height:82px;padding:0 22px;display:flex;align-items:center;gap:12px;color:#080808;text-decoration:none;border-right:1px solid rgba(0,0,0,.18)}
+        .categoryStrip a:last-child{border:0}
+        .categoryStrip a span{font-size:10px;font-weight:800;opacity:.55}
+        .categoryStrip a b{flex:1;font-size:12px;font-weight:950;letter-spacing:1px}
+        .categoryStrip a:hover{background:#fff}
+        .featured{padding:62px 4%;background:#090909}
+        .sectionHeading{display:flex;justify-content:space-between;align-items:end;gap:18px;margin-bottom:28px}
+        .eyebrow{color:#aaa;font-size:10px;letter-spacing:2.5px;margin:0 0 9px}
+        .sectionHeading h2{font-size:clamp(25px,4vw,40px);line-height:1;letter-spacing:-1.5px;font-weight:950;margin:0}
+        .viewAll{color:#d9ff00;background:transparent;border:0;display:flex;align-items:center;gap:10px;font-size:10px;font-weight:950;letter-spacing:1px;text-decoration:none;white-space:nowrap}
+        .featuredGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px}
+        .featuredCard{position:relative;min-width:0}
+        .featuredImage{position:relative;display:block;width:100%;aspect-ratio:1/1.08;padding:0;overflow:hidden;border:0;background:#242424;cursor:pointer;text-align:center}
+        .featuredImage img{display:block;width:100%;height:100%;object-fit:cover;transition:transform .5s}
+        .featuredImage:hover img{transform:scale(1.04)}
         .noImage{height:100%;width:100%;min-height:180px;display:grid;place-items:center;color:#777;font-weight:900;letter-spacing:2px;font-size:13px}
-        .saveButton{position:absolute;right:12px;top:12px;width:36px;height:36px;display:grid;place-items:center;border:0;background:rgba(0,0,0,.2);color:white;cursor:pointer}
-        .saveButton.isSaved{color:#fff}
-        .soldOut{position:absolute;left:10px;bottom:10px;padding:7px 9px;background:#fff;color:#111;font-size:9px;font-weight:900;letter-spacing:1px}
-        .featuredInfo,.shopInfo{width:100%;display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin-top:12px;padding:0;border:0;color:#fff;background:transparent;text-align:left;cursor:pointer}
-        .featuredInfo span,.shopInfo span{font-size:13px;font-weight:700;line-height:1.35}
-        .featuredInfo b,.shopInfo b{font-size:13px;font-weight:500}
-        .shopSection{background:#111;border-top:1px solid #252525}
-        .pieceCount{color:#aaa;font-size:10px;letter-spacing:1px;white-space:nowrap}
-        .shopFilters{display:flex;gap:22px;align-items:center;flex-wrap:wrap;margin:0 0 25px;padding-bottom:13px;border-bottom:1px solid #333}
-        .shopFilters button{padding:0 0 8px;border:0;border-bottom:2px solid transparent;background:transparent;color:#999;font-size:10px;font-weight:800;letter-spacing:1px;cursor:pointer}
-        .shopFilters button.selectedFilter{color:#fff;border-bottom-color:#fff}
-        .shopFilters span{margin-left:auto;color:#999;font-size:10px;overflow:hidden;text-overflow:ellipsis}
+        .saveButton{position:absolute;right:12px;top:12px;width:36px;height:36px;display:grid;place-items:center;border:0;background:rgba(0,0,0,.35);color:white;cursor:pointer}
+        .saveButton.isSaved{color:#d9ff00}
+        .soldOut{position:absolute;left:10px;bottom:10px;padding:7px 9px;background:#d9ff00;color:#111;font-size:9px;font-weight:950;letter-spacing:1px}
+        .featuredInfo{width:100%;display:flex;flex-direction:column;align-items:flex-start;gap:7px;margin-top:13px;padding:0;border:0;color:#fff;background:transparent;text-align:left;cursor:pointer}
+        .featuredInfo span{font-size:13px;font-weight:750;line-height:1.35}
+        .featuredInfo b{font-size:13px;font-weight:500;color:#d9ff00}
         .statusMessage{padding:42px 10px;text-align:center;color:#aaa;font-size:12px;letter-spacing:1px}
+        .shopCallout{padding:55px 5%;display:flex;align-items:center;justify-content:space-between;gap:25px;background:#171717;border-top:1px solid #333;border-bottom:1px solid #333}
+        .shopCallout h2{margin:0;font-size:clamp(28px,5vw,53px);line-height:.98;letter-spacing:-2px;font-weight:950}
+        .shopCallout>a{display:flex;align-items:center;gap:15px;padding:17px 20px;background:#d9ff00;color:#080808;text-decoration:none;font-size:10px;font-weight:950;letter-spacing:1px;white-space:nowrap}
+        .shopCallout>a:hover{background:#fff}
         .footer{background:#252525;color:#fff;padding:45px 5% 22px;border-top:1px solid #333}
         .footer,.footer *{font-family:Arial,Helvetica,sans-serif;box-sizing:border-box}
         .footerTop{padding-bottom:35px}
@@ -843,8 +1047,17 @@ export default function Home() {
         .bagDrawer{margin-left:auto;box-shadow:-10px 0 35px rgba(0,0,0,.35)}
         .drawerHeader{display:flex;align-items:center;justify-content:space-between;gap:15px;padding-bottom:22px;border-bottom:1px solid #333}
         .drawerHeader h2{font-size:17px;letter-spacing:1px}
-        .drawerGroup{border-bottom:1px solid #292929}
-        .drawerGroup>button{display:flex;align-items:center;justify-content:space-between;width:100%;padding:19px 0;background:transparent;border:0;color:#fff;font-size:13px;font-weight:900;letter-spacing:1.5px;cursor:pointer}
+        .drawerLogo{display:flex;align-items:center}
+        .drawerLogo img{width:135px;height:auto;object-fit:contain}
+        .drawerEyebrow{margin:28px 0 12px;color:#999;font-size:10px;font-weight:800;letter-spacing:2px}
+        .drawerLink{display:flex;align-items:center;gap:13px;padding:20px 0;border-bottom:1px solid #292929;color:#fff;text-decoration:none;font-size:17px;font-weight:950;letter-spacing:1px}
+        .drawerLink span{color:#d9ff00;font-size:10px}
+        .drawerLink svg{width:18px;margin-left:auto}
+        .drawerLink:hover{color:#d9ff00}
+        .saleLink{color:#d9ff00}
+        .drawerBottom{margin-top:35px;padding-top:22px;border-top:1px solid #333}
+        .drawerBottom p{font-size:11px;font-weight:900;letter-spacing:2px}
+        .drawerBottom span{font-size:10px;color:#888;letter-spacing:2px}
         .bagLines{padding:20px 0}
         .bagLine{display:flex;gap:14px;padding:15px 0;border-bottom:1px solid #292929}
         .bagLine img,.bagNoImage{width:90px;height:110px;object-fit:cover;background:#252525}
@@ -855,35 +1068,43 @@ export default function Home() {
         .bagSummary{position:sticky;bottom:0;padding:18px 0;background:#0b0b0b;border-top:1px solid #333}
         .bagSummary>div{display:flex;justify-content:space-between;font-size:13px}
         .bagSummary p,.emptyBag p{color:#999;font-size:11px;line-height:1.6}
-        .checkoutButton{width:100%;padding:16px;border:0;background:#fff;color:#000;font-size:11px;font-weight:900;letter-spacing:1px;cursor:pointer}
+        .checkoutButton{width:100%;padding:16px;border:0;background:#d9ff00;color:#000;font-size:11px;font-weight:950;letter-spacing:1px;cursor:pointer}
         .checkoutButton:disabled{opacity:.5}
         .emptyBag{min-height:65vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center}
         .emptyBag h3{font-size:14px;letter-spacing:1px}
         @media(max-width:760px){
-          .header{height:62px;padding:0 13px}
-          .logo{font-size:19px}
-          .headerRight{gap:3px}
+          .announcement{padding:0 13px;font-size:8px;letter-spacing:1px}
+          .header{height:65px;padding:0 13px}
+          .logoImage{width:125px;height:49px}
+          .headerRight{gap:2px}
           .headerRight .headerIcon{padding:7px}
-          .genderNav{padding:10px 12px}
-          .genderRow button{min-height:48px;font-size:15px}
-          .electronicsNav{min-height:48px;font-size:14px}
+          .quickNav{height:43px;justify-content:flex-start;gap:23px;padding:0 15px;overflow-x:auto}
+          .quickNav a{font-size:9px;white-space:nowrap}
+          .searchPanel{top:137px;padding:14px}
           .hero{height:590px;min-height:590px;max-height:none}
           .heroImage{background-position:60% center}
-          .heroOverlay{background:linear-gradient(90deg,rgba(0,0,0,.76),rgba(0,0,0,.12)),linear-gradient(0deg,rgba(0,0,0,.5),transparent 35%)}
+          .heroOverlay{background:linear-gradient(90deg,rgba(0,0,0,.78),rgba(0,0,0,.16)),linear-gradient(0deg,rgba(0,0,0,.5),transparent 35%)}
           .heroContent{padding:30px 22px}
-          .heroContent h1{font-size:clamp(67px,17vw,95px);letter-spacing:-4px}
+          .heroContent h1{font-size:clamp(56px,14vw,85px);letter-spacing:-3px}
+          .heroEyebrow{font-size:9px;letter-spacing:2px}
           .heroSub{font-size:9px;letter-spacing:1.4px}
-          .heroBottom{left:20px;right:20px;bottom:20px}
-          .heroCollection{display:none}
-          .featured,.shopSection{padding:38px 15px}
+          .heroBottom{left:18px;right:18px;bottom:20px;font-size:8px;gap:10px}
+          .heroProgress{width:75px}
+          .categoryStrip{grid-template-columns:1fr 1fr}
+          .categoryStrip a{min-height:65px;padding:0 13px;border-bottom:1px solid rgba(0,0,0,.18)}
+          .categoryStrip a:nth-child(2){border-right:0}
+          .categoryStrip a b{font-size:10px}
+          .featured{padding:40px 15px}
           .sectionHeading{align-items:end;margin-bottom:20px}
           .sectionHeading h2{font-size:clamp(22px,6vw,30px)}
           .viewAll{font-size:9px;gap:5px}
-          .featuredGrid,.shopGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:22px 12px}
-          .featuredInfo span,.shopInfo span{font-size:11px}
-          .featuredInfo b,.shopInfo b{font-size:11px}
+          .featuredGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:22px 12px}
+          .featuredInfo span{font-size:11px}
+          .featuredInfo b{font-size:11px}
           .saveButton{top:7px;right:7px;width:31px;height:31px}
-          .shopFilters{gap:16px}
+          .shopCallout{padding:38px 18px;align-items:flex-start;flex-direction:column}
+          .shopCallout h2{font-size:32px}
+          .shopCallout>a{width:100%;justify-content:space-between}
           .productModal{grid-template-columns:1fr;max-width:480px}
           .modalImage,.modalImage img{min-height:260px;max-height:42vh}
           .modalDetails{gap:13px;padding:22px}
@@ -898,7 +1119,7 @@ export default function Home() {
           .footerBottom{flex-direction:column;gap:8px}
         }
         @media(min-width:761px) and (max-width:1050px){
-          .featuredGrid,.shopGrid{grid-template-columns:repeat(3,minmax(0,1fr))}
+          .featuredGrid{grid-template-columns:repeat(3,minmax(0,1fr))}
         }
       `}</style>
     </main>
