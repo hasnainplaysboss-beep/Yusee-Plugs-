@@ -4,7 +4,12 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { House, ShoppingBag, UserRound, X } from "lucide-react";
+import {
+  House,
+  ShoppingBag,
+  UserRound,
+  X,
+} from "lucide-react";
 
 type Variant = {
   id: string;
@@ -31,18 +36,21 @@ type BagItem = {
   quantity: number;
 };
 
-function normaliseDelivery(delivery?: string | null) {
-  const value = (delivery || "").trim().toLowerCase();
+function normaliseDelivery(delivery: string | null | undefined) {
+  const value = (delivery || "UK").trim().toLowerCase();
 
-  if (value.includes("uk")) return "uk";
-  if (value.includes("china")) return "china";
+  if (value === "uk" || value === "gb" || value.includes("united kingdom")) {
+    return "uk";
+  }
+
+  if (value === "cn" || value === "china") {
+    return "china";
+  }
 
   return value;
 }
 
-function money(pence: number) {
-  return `£${(pence / 100).toFixed(2)}`;
-}
+const money = (pence: number) => `£${(pence / 100).toFixed(2)}`;
 
 export default function MensPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -57,62 +65,53 @@ export default function MensPage() {
 
   const [selected, setSelected] = useState<Product | null>(null);
   const [selectedVariant, setSelectedVariant] = useState("");
-
   const [message, setMessage] = useState("");
 
   const [bag, setBag] = useState<BagItem[]>([]);
   const [bagReady, setBagReady] = useState(false);
   const [bagOpen, setBagOpen] = useState(false);
-
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [customerSignedIn, setCustomerSignedIn] = useState(false);
 
+  // Load men's products
   useEffect(() => {
     async function loadProducts() {
       try {
-        setLoading(true);
-        setError("");
-
         const response = await fetch("/api/products", {
           cache: "no-store",
         });
 
+        const data = await response.json();
+
         if (!response.ok) {
-          throw new Error("Could not load products.");
+          throw new Error(data.error || "Could not load products.");
         }
 
-        const data = await response.json();
-        const allProducts = Array.isArray(data)
+        const allProducts: Product[] = Array.isArray(data)
           ? data
-          : Array.isArray(data.products)
-            ? data.products
-            : [];
+          : data.products || [];
 
-        const mensProducts = allProducts.filter((product: Product) => {
-          const category = (product.category || "")
-            .trim()
-            .toLowerCase()
-            .replace("’", "'");
+        setProducts(
+          allProducts.filter((product) => {
+            const category = (product.category || "")
+              .trim()
+              .toLowerCase()
+              .replace("’", "'");
 
-          return (
-            category === "men" ||
-            category === "mens" ||
-            category === "men's" ||
-            category.startsWith("men/") ||
-            category.startsWith("men /") ||
-            category.startsWith("mens/") ||
-            category.startsWith("mens /") ||
-            category.startsWith("men's/") ||
-            category.startsWith("men's ") ||
-            category.startsWith("mens ")
-          );
-        });
-
-        setProducts(mensProducts);
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Something went wrong."
+            return (
+              category === "men" ||
+              category === "mens" ||
+              category === "men's" ||
+              category.startsWith("men/") ||
+              category.startsWith("men /") ||
+              category.startsWith("mens/") ||
+              category.startsWith("mens /") ||
+              category.startsWith("men's/")
+            );
+          })
         );
+      } catch {
+        setError("We couldn't load menswear right now. Please try again.");
       } finally {
         setLoading(false);
       }
@@ -121,45 +120,42 @@ export default function MensPage() {
     loadProducts();
   }, []);
 
+  // Load the same saved bag used by the homepage
   useEffect(() => {
     try {
-      const saved = localStorage.getItem("yusee_bag");
+      const stored = localStorage.getItem("yusee_bag");
 
-      if (saved) {
-        const parsed = JSON.parse(saved);
+      if (stored) {
+        const parsed = JSON.parse(stored);
 
         if (Array.isArray(parsed)) {
           setBag(parsed);
         }
       }
     } catch {
-      setBag([]);
+      localStorage.removeItem("yusee_bag");
+    } finally {
+      setBagReady(true);
     }
+  }, []);
 
-    setBagReady(true);
-
-    async function checkAccount() {
-      try {
-        const response = await fetch("/api/auth/me", {
-          cache: "no-store",
-        });
-
-        if (!response.ok) return;
-
-        const data = await response.json();
-        setCustomerSignedIn(data.signedIn === true);
-      } catch {
-        setCustomerSignedIn(false);
-      }
+  // Keep the saved bag updated
+  useEffect(() => {
+    if (bagReady) {
+      localStorage.setItem("yusee_bag", JSON.stringify(bag));
     }
+  }, [bag, bagReady]);
 
-    checkAccount();
-
-    function syncBag(event: StorageEvent) {
-      if (event.key !== "yusee_bag") return;
-
+  // Keep the bag in sync if it changes in another browser tab
+  useEffect(() => {
+    function syncBag() {
       try {
-        setBag(event.newValue ? JSON.parse(event.newValue) : []);
+        const stored = localStorage.getItem("yusee_bag");
+        const parsed = stored ? JSON.parse(stored) : [];
+
+        if (Array.isArray(parsed)) {
+          setBag(parsed);
+        }
       } catch {
         setBag([]);
       }
@@ -167,86 +163,103 @@ export default function MensPage() {
 
     window.addEventListener("storage", syncBag);
 
-    return () => {
-      window.removeEventListener("storage", syncBag);
-    };
+    return () => window.removeEventListener("storage", syncBag);
   }, []);
 
+  // Check customer sign-in
   useEffect(() => {
-    if (!bagReady) return;
+    async function checkAuth() {
+      try {
+        const response = await fetch("/api/auth/me", {
+          cache: "no-store",
+        });
 
-    localStorage.setItem("yusee_bag", JSON.stringify(bag));
-  }, [bag, bagReady]);
+        const data = response.ok
+          ? await response.json()
+          : { signedIn: false };
+
+        setCustomerSignedIn(data.signedIn === true);
+      } catch {
+        setCustomerSignedIn(false);
+      }
+    }
+
+    checkAuth();
+  }, []);
 
   const sizes = useMemo(() => {
     const values = products.flatMap((product) =>
-      product.variants.map((variant) => variant.size).filter(Boolean)
+      (product.variants || [])
+        .map((variant) => variant.size)
+        .filter((value): value is string => Boolean(value))
     );
 
-    return Array.from(new Set(values as string[])).sort();
+    return Array.from(new Set(values)).sort();
   }, [products]);
 
   const colours = useMemo(() => {
     const values = products.flatMap((product) =>
-      product.variants.map((variant) => variant.colour).filter(Boolean)
+      (product.variants || [])
+        .map((variant) => variant.colour)
+        .filter((value): value is string => Boolean(value))
     );
 
-    return Array.from(new Set(values as string[])).sort();
+    return Array.from(new Set(values)).sort();
   }, [products]);
 
   const filteredProducts = useMemo(() => {
-    let result = [...products];
+    let result = products.filter((product) => {
+      const query = search.trim().toLowerCase();
 
-    if (search.trim()) {
-      const query = search.toLowerCase();
+      const matchesSearch =
+        !query ||
+        product.name.toLowerCase().includes(query) ||
+        (product.category || "").toLowerCase().includes(query) ||
+        (product.description || "").toLowerCase().includes(query);
 
-      result = result.filter(
-        (product) =>
-          product.name.toLowerCase().includes(query) ||
-          (product.description || "").toLowerCase().includes(query)
+      const available = (product.variants || []).filter(
+        (variant) => variant.stock > 0
       );
-    }
 
-    if (size !== "all") {
-      result = result.filter((product) =>
-        product.variants.some(
-          (variant) => variant.size === size && variant.stock > 0
-        )
+      const matchesSize =
+        size === "all" ||
+        available.some((variant) => variant.size === size);
+
+      const matchesColour =
+        colour === "all" ||
+        available.some((variant) => variant.colour === colour);
+
+      const cheapest =
+        available.length > 0
+          ? Math.min(...available.map((variant) => variant.pricePence))
+          : Infinity;
+
+      const matchesPrice =
+        maxPrice === "all" || cheapest <= Number(maxPrice) * 100;
+
+      return (
+        matchesSearch &&
+        matchesSize &&
+        matchesColour &&
+        matchesPrice &&
+        available.length > 0
       );
-    }
-
-    if (colour !== "all") {
-      result = result.filter((product) =>
-        product.variants.some(
-          (variant) => variant.colour === colour && variant.stock > 0
-        )
-      );
-    }
-
-    if (maxPrice !== "all") {
-      const maximum = Number(maxPrice) * 100;
-
-      result = result.filter((product) =>
-        product.variants.some(
-          (variant) => variant.pricePence <= maximum && variant.stock > 0
-        )
-      );
-    }
+    });
 
     if (sort === "price-low") {
-      result.sort(
+      result = [...result].sort(
         (a, b) =>
           Math.min(...a.variants.map((v) => v.pricePence)) -
           Math.min(...b.variants.map((v) => v.pricePence))
       );
     } else if (sort === "price-high") {
-      result.sort(
+      result = [...result].sort(
         (a, b) =>
           Math.min(...b.variants.map((v) => v.pricePence)) -
           Math.min(...a.variants.map((v) => v.pricePence))
       );
     } else {
-      result.sort(
+      result = [...result].sort(
         (a, b) =>
           new Date(b.createdAt || 0).getTime() -
           new Date(a.createdAt || 0).getTime()
@@ -256,240 +269,226 @@ export default function MensPage() {
     return result;
   }, [products, search, size, colour, maxPrice, sort]);
 
-  const bagItems = useMemo(() => {
-    return bag
-      .map((item) => {
-        for (const product of products) {
-          const variant = product.variants.find(
-            (v) => v.id === item.variantId
-          );
-
-          if (variant) {
-            return {
-              ...item,
-              product,
-              variant,
-            };
-          }
-        }
-
-        return null;
-      })
-      .filter((item) => item !== null);
-  }, [bag, products]);
-
-  const bagCount = bag.reduce((total, item) => total + item.quantity, 0);
-
-  const bagTotal = bagItems.reduce(
-    (total, item) =>
-      total + item.variant.pricePence * item.quantity,
-    0
-  );
-
   function openProduct(product: Product) {
     setSelected(product);
-    setSelectedVariant("");
+
+    const firstAvailable = product.variants.find(
+      (variant) => variant.stock > 0
+    );
+
+    setSelectedVariant(firstAvailable?.id || "");
     setMessage("");
   }
 
-  function addToBag() {
-    if (!selected || !selectedVariant) {
-      setMessage("Please select a size and option first.");
+  function addToBag(product: Product, variantId: string) {
+    const variant = product.variants.find((item) => item.id === variantId);
+
+    if (!variant || variant.stock < 1) {
+      setMessage("Sorry, this option is out of stock.");
       return;
     }
 
-    const variant = selected.variants.find(
-      (item) => item.id === selectedVariant
-    );
+    const selectedDelivery = normaliseDelivery(variant.delivery);
 
-    if (!variant || variant.stock <= 0) {
-      setMessage("This option is sold out.");
-      return;
-    }
+    const existingDeliveries = bag
+      .map((line) => {
+        const existingVariant = products
+          .flatMap((item) => item.variants)
+          .find((item) => item.id === line.variantId);
 
-    const newDelivery = normaliseDelivery(variant.delivery);
-
-    const existingDeliveries = bagItems
-      .map((item) => normaliseDelivery(item.variant.delivery))
+        return existingVariant
+          ? normaliseDelivery(existingVariant.delivery)
+          : null;
+      })
       .filter(Boolean);
 
     if (
-      existingDeliveries.length > 0 &&
-      existingDeliveries.some((delivery) => delivery !== newDelivery)
+      existingDeliveries.some(
+        (delivery) => delivery !== selectedDelivery
+      )
     ) {
       setMessage(
-        "Your bag contains items with a different delivery type. Please checkout separately."
+        "Your bag already contains a different delivery type. Please checkout or remove those items before adding this product."
       );
       return;
     }
 
-    setBag((current) => {
-      const existing = current.find(
-        (item) => item.variantId === selectedVariant
-      );
+    setBag((old) => {
+      const existing = old.find((item) => item.variantId === variant.id);
 
       if (existing) {
-        return current.map((item) =>
-          item.variantId === selectedVariant
+        return old.map((item) =>
+          item.variantId === variant.id
             ? { ...item, quantity: item.quantity + 1 }
             : item
         );
       }
 
-      return [
-        ...current,
-        {
-          variantId: selectedVariant,
-          quantity: 1,
-        },
-      ];
+      return [...old, { variantId: variant.id, quantity: 1 }];
     });
 
     setSelected(null);
+    setMessage("");
     setBagOpen(true);
   }
 
-  function updateQuantity(variantId: string, quantity: number) {
-    if (quantity <= 0) {
-      setBag((current) =>
-        current.filter((item) => item.variantId !== variantId)
-      );
-      return;
-    }
+  async function startCheckout(items: BagItem[]) {
+    if (!items.length) return;
 
-    setBag((current) =>
-      current.map((item) =>
-        item.variantId === variantId
-          ? { ...item, quantity }
-          : item
-      )
-    );
-  }
+    const deliveries = new Set(
+      items.map((item) => {
+        const variant = products
+          .flatMap((product) => product.variants)
+          .find((variant) => variant.id === item.variantId);
 
-  async function checkout() {
-    if (bagItems.length === 0) return;
-
-    const deliveryTypes = Array.from(
-      new Set(
-        bagItems
-          .map((item) => normaliseDelivery(item.variant.delivery))
-          .filter(Boolean)
-      )
+        return normaliseDelivery(variant?.delivery);
+      })
     );
 
-    if (deliveryTypes.length > 1) {
+    if (deliveries.size > 1) {
       alert(
-        "Your bag contains different delivery types. Please checkout separately."
+        "Your bag contains mixed delivery types. Please remove items until your bag contains only UK or China delivery."
       );
       return;
     }
+
+    setCheckoutLoading(true);
 
     try {
-      setCheckoutLoading(true);
-
       const response = await fetch("/api/checkout", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          items: bag.map((item) => ({
-            variantId: item.variantId,
-            quantity: item.quantity,
-          })),
-        }),
+        body: JSON.stringify({ items }),
       });
 
       const data = await response.json();
 
       if (!response.ok || !data.url) {
-        throw new Error(data.error || "Checkout could not be started.");
+        throw new Error(data.error || "Could not start checkout.");
       }
 
       window.location.href = data.url;
-    } catch (err) {
+    } catch (error) {
       alert(
-        err instanceof Error
-          ? err.message
-          : "Something went wrong during checkout."
+        error instanceof Error
+          ? error.message
+          : "Could not start checkout."
       );
-    } finally {
+
       setCheckoutLoading(false);
     }
   }
 
+  const bagItems = bag
+    .map((line) => {
+      const product = products.find((item) =>
+        item.variants.some((variant) => variant.id === line.variantId)
+      );
+
+      const variant = product?.variants.find(
+        (item) => item.id === line.variantId
+      );
+
+      if (!product || !variant) return null;
+
+      return {
+        ...line,
+        product,
+        variant,
+      };
+    })
+    .filter(
+      (item): item is NonNullable<typeof item> => item !== null
+    );
+
+  const bagCount = bag.reduce(
+    (sum, item) => sum + item.quantity,
+    0
+  );
+
+  const total = bagItems.reduce(
+    (sum, item) => sum + item.variant.pricePence * item.quantity,
+    0
+  );
+
+  const modalVariant = selected?.variants.find(
+    (variant) => variant.id === selectedVariant
+  );
+
   return (
-    <main className="mens-page">
+    <main className="accessories-page">
       <div className="announcement">
         <span>PLUG IN. STAND OUT.</span>
         <span>DISCOVER THE COLLECTION</span>
       </div>
 
       <header className="site-header">
-        <div className="header-icons">
-          <Link href="/" aria-label="Home">
-            <House size={21} />
+        <div className="header-top">
+          <Link href="/" className="logo" aria-label="Yusee Plugs home">
+            <Image
+              src="/FAAEF0EE-B20E-425B-AC66-5DA42ADAF006.png"
+              alt="Yusee Plugs"
+              width={170}
+              height={65}
+              priority
+              className="logo-image"
+            />
           </Link>
+
+          <div className="header-icons">
+            <Link href="/" aria-label="Home" title="Home">
+              <House size={23} strokeWidth={2} />
+            </Link>
+
+            <button
+              className="header-icon bag-icon"
+              aria-label="Open shopping bag"
+              title="Shopping bag"
+              onClick={() => setBagOpen(true)}
+            >
+              <ShoppingBag size={23} strokeWidth={2} />
+              <span className="bag-count">{bagCount}</span>
+            </button>
+
+            <Link
+              href={customerSignedIn ? "/account" : "/login"}
+              aria-label="My account"
+              title="My account"
+            >
+              <UserRound size={23} strokeWidth={2} />
+            </Link>
+          </div>
         </div>
 
-        <Link href="/" className="logo">
-          <Image
-            src="/FAAEF0EE-B20E-425B-AC66-5DA42ADAF006.png"
-            alt="Yusee Plugs"
-            width={170}
-            height={65}
-            priority
-            className="logo-image"
-          />
-        </Link>
-
-        <div className="header-icons">
-          <button
-            type="button"
-            onClick={() => setBagOpen(true)}
-            aria-label="Shopping bag"
-            className="icon-button"
-          >
-            <ShoppingBag size={21} />
-            {bagCount > 0 && <span className="bag-count">{bagCount}</span>}
-          </button>
-
-          <Link
-            href={customerSignedIn ? "/account" : "/login"}
-            aria-label="Account"
-          >
-            <UserRound size={21} />
+        <nav className="category-nav">
+          <Link href="/mens" className="active">
+            MEN
           </Link>
-        </div>
+          <Link href="/womens">WOMEN</Link>
+          <Link href="/electronics">ELECTRONICS</Link>
+          <Link href="/accessories">ACCESSORIES</Link>
+          <Link href="/shop">ALL PRODUCTS</Link>
+        </nav>
       </header>
 
-      <nav className="category-nav">
-        <Link href="/mens" className="active">
-          MEN
-        </Link>
-        <Link href="/womens">WOMEN</Link>
-        <Link href="/electronics">ELECTRONICS</Link>
-        <Link href="/accessories">ACCESSORIES</Link>
-      </nav>
-
-      <section className="banner">
-        <Image
+      <section className="intro">
+        <img
           src="/4A72528E-A9E4-4604-BBFD-28C98BD71CB1.png"
-          alt="Shop men's collection"
-          width={2000}
-          height={700}
-          priority
-          className="banner-image"
+          alt="Yusee Plugs Men's Collection"
         />
       </section>
 
       <section className="catalogue">
         <div className="catalogue-heading">
-          <p className="eyebrow">THE YUSEE COLLECTION</p>
-          <h1>SHOP MEN</h1>
-          <p className="catalogue-description">
-            Discover the latest styles from Yusee.
-          </p>
+          <div>
+            <p className="eyebrow">THE YUSEE COLLECTION</p>
+            <h2>SHOP MEN</h2>
+            <p className="product-count">
+              {filteredProducts.length} PRODUCTS
+            </p>
+          </div>
         </div>
 
         <div className="filters">
@@ -533,11 +532,11 @@ export default function MensPage() {
             aria-label="Filter by maximum price"
           >
             <option value="all">Any price</option>
-            <option value="20">Under £20</option>
-            <option value="40">Under £40</option>
-            <option value="60">Under £60</option>
+            <option value="10">Under £10</option>
+            <option value="25">Under £25</option>
+            <option value="50">Under £50</option>
             <option value="100">Under £100</option>
-            <option value="150">Under £150</option>
+            <option value="250">Under £250</option>
           </select>
 
           <select
@@ -552,59 +551,45 @@ export default function MensPage() {
         </div>
 
         {loading ? (
-          <p className="status-message">LOADING MENSWEAR...</p>
+          <p className="status">LOADING MENSWEAR...</p>
         ) : error ? (
-          <p className="status-message">{error}</p>
+          <p className="status">{error}</p>
         ) : filteredProducts.length === 0 ? (
-          <p className="status-message">
-            No menswear products found.
-          </p>
+          <div className="empty">
+            <h3>NO PRODUCTS FOUND</h3>
+            <p>Try changing your search or filters.</p>
+          </div>
         ) : (
           <div className="product-grid">
             {filteredProducts.map((product) => {
-              const availableVariants = product.variants.filter(
+              const available = product.variants.filter(
                 (variant) => variant.stock > 0
               );
 
-              const lowestPrice =
-                product.variants.length > 0
-                  ? Math.min(
-                      ...product.variants.map(
-                        (variant) => variant.pricePence
-                      )
-                    )
-                  : 0;
+              const startingPrice = Math.min(
+                ...available.map((variant) => variant.pricePence)
+              );
 
               return (
                 <button
-                  type="button"
                   className="product-card"
                   key={product.id}
                   onClick={() => openProduct(product)}
                 >
-                  <div className="product-image-wrap">
+                  <div className="product-image">
                     {product.imageUrl ? (
-                      <Image
-                        src={product.imageUrl}
-                        alt={product.name}
-                        fill
-                        sizes="(max-width: 600px) 50vw, (max-width: 850px) 33vw, 25vw"
-                        className="product-image"
-                      />
+                      <img src={product.imageUrl} alt={product.name} />
                     ) : (
-                      <div className="image-placeholder">
-                        YUSEE
-                      </div>
+                      <span>YUSEE PLUGS</span>
                     )}
 
-                    {availableVariants.length === 0 && (
-                      <span className="sold-out-label">SOLD OUT</span>
-                    )}
+                    <span className="view-label">VIEW PRODUCT</span>
                   </div>
 
-                  <div className="product-details">
-                    <h2>{product.name}</h2>
-                    <p>From {money(lowestPrice)}</p>
+                  <div className="product-info">
+                    <h3>{product.name}</h3>
+                    <p>{product.category || "Men"}</p>
+                    <strong>{money(startingPrice)}</strong>
                   </div>
                 </button>
               );
@@ -613,102 +598,126 @@ export default function MensPage() {
         )}
       </section>
 
+      <footer className="footer">
+        <Link href="/" className="footer-brand">
+          YUSEE PLUGS
+        </Link>
+        <p>PLUG IN. STAND OUT.</p>
+
+        <div>
+          <Link href="/shop">ALL PRODUCTS</Link>
+          <Link href="/mens">MEN</Link>
+          <Link href="/womens">WOMEN</Link>
+          <Link href="/electronics">ELECTRONICS</Link>
+          <Link href="/accessories">ACCESSORIES</Link>
+        </div>
+
+        <small>
+          © {new Date().getFullYear()} YUSEE PLUGS. ALL RIGHTS RESERVED.
+        </small>
+      </footer>
+
+      {/* PRODUCT DETAILS */}
       {selected && (
         <div
           className="modal-backdrop"
           onClick={() => setSelected(null)}
         >
-          <div
+          <section
             className="product-modal"
             onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label={selected.name}
           >
             <button
-              type="button"
               className="close-button"
               onClick={() => setSelected(null)}
-              aria-label="Close product"
+              aria-label="Close product details"
             >
-              <X size={22} />
+              <X />
             </button>
 
             <div className="modal-image">
               {selected.imageUrl ? (
-                <Image
-                  src={selected.imageUrl}
-                  alt={selected.name}
-                  fill
-                  sizes="(max-width: 700px) 100vw, 50vw"
-                  className="product-image"
-                />
+                <img src={selected.imageUrl} alt={selected.name} />
               ) : (
-                <div className="image-placeholder">YUSEE</div>
+                <span>YUSEE PLUGS</span>
               )}
             </div>
 
-            <div className="modal-details">
-              <p className="eyebrow">YUSEE COLLECTION</p>
+            <div className="modal-info">
+              <p className="eyebrow">YUSEE PLUGS</p>
               <h2>{selected.name}</h2>
 
-              {selected.description && (
-                <p className="modal-description">
-                  {selected.description}
-                </p>
+              <p className="modal-description">
+                {selected.description ||
+                  "Explore this product from Yusee Plugs."}
+              </p>
+
+              <label htmlFor="variant">CHOOSE AN OPTION</label>
+
+              <select
+                id="variant"
+                value={selectedVariant}
+                onChange={(event) =>
+                  setSelectedVariant(event.target.value)
+                }
+              >
+                {selected.variants.map((variant) => (
+                  <option
+                    key={variant.id}
+                    value={variant.id}
+                    disabled={variant.stock < 1}
+                  >
+                    {[
+                      variant.colour,
+                      variant.size,
+                      variant.delivery,
+                      money(variant.pricePence),
+                      variant.stock < 1 ? "SOLD OUT" : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </option>
+                ))}
+              </select>
+
+              {modalVariant && (
+                <strong className="modal-price">
+                  {money(modalVariant.pricePence)}
+                </strong>
               )}
 
-              <h3>SELECT YOUR OPTION</h3>
-
-              <div className="variant-list">
-                {selected.variants.map((variant) => {
-                  const soldOut = variant.stock <= 0;
-
-                  return (
-                    <button
-                      type="button"
-                      key={variant.id}
-                      disabled={soldOut}
-                      className={`variant-option ${
-                        selectedVariant === variant.id ? "chosen" : ""
-                      }`}
-                      onClick={() => {
-                        setSelectedVariant(variant.id);
-                        setMessage("");
-                      }}
-                    >
-                      <span>
-                        {variant.size || "One size"}
-                        {variant.colour ? ` · ${variant.colour}` : ""}
-                        {variant.delivery
-                          ? ` · ${variant.delivery}`
-                          : ""}
-                      </span>
-
-                      <span>
-                        {money(variant.pricePence)}
-                        {soldOut ? " · SOLD OUT" : ""}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {message && <p className="form-message">{message}</p>}
+              <p
+                className={`stock-text ${
+                  modalVariant?.stock ? "in-stock" : "out-stock"
+                }`}
+              >
+                {modalVariant
+                  ? modalVariant.stock > 0
+                    ? `${modalVariant.stock} AVAILABLE`
+                    : "THIS OPTION IS SOLD OUT"
+                  : "NO OPTIONS AVAILABLE"}
+              </p>
 
               <button
-                type="button"
                 className="add-button"
-                onClick={addToBag}
-                disabled={
-                  selected.variants.length === 0 ||
-                  selected.variants.every((variant) => variant.stock <= 0)
+                disabled={!modalVariant || modalVariant.stock < 1}
+                onClick={() =>
+                  addToBag(selected, selectedVariant)
                 }
               >
                 ADD TO BAG
               </button>
+
+              {message && <p className="message">{message}</p>}
             </div>
-          </div>
+          </section>
         </div>
       )}
 
+      {/* SHOPPING BAG DRAWER - SAME FUNCTIONALITY AS HOMEPAGE */}
       {bagOpen && (
         <div
           className="drawer-backdrop"
@@ -718,25 +727,26 @@ export default function MensPage() {
             className="bag-drawer"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="drawer-heading">
+            <div className="drawer-header">
               <h2>YOUR BAG ({bagCount})</h2>
 
               <button
-                type="button"
-                onClick={() => setBagOpen(false)}
+                className="drawer-close"
                 aria-label="Close bag"
-                className="icon-button"
+                onClick={() => setBagOpen(false)}
               >
-                <X size={23} />
+                <X />
               </button>
             </div>
 
             {bagItems.length === 0 ? (
               <div className="empty-bag">
-                <p>Your bag is currently empty.</p>
+                <ShoppingBag size={36} />
+                <h3>YOUR BAG IS EMPTY</h3>
+                <p>Find your next favourite.</p>
+
                 <button
-                  type="button"
-                  className="add-button"
+                  className="checkout-button"
                   onClick={() => setBagOpen(false)}
                 >
                   CONTINUE SHOPPING
@@ -744,73 +754,45 @@ export default function MensPage() {
               </div>
             ) : (
               <>
-                <div className="bag-products">
+                <div className="bag-lines">
                   {bagItems.map((item) => (
-                    <div
-                      className="bag-item"
-                      key={item.variantId}
-                    >
-                      <div className="bag-item-image">
-                        {item.product.imageUrl ? (
-                          <Image
-                            src={item.product.imageUrl}
-                            alt={item.product.name}
-                            fill
-                            sizes="90px"
-                            className="product-image"
-                          />
-                        ) : (
-                          <div className="image-placeholder">YUSEE</div>
+                    <div className="bag-line" key={item.variantId}>
+                      {item.product.imageUrl ? (
+                        <img
+                          src={item.product.imageUrl}
+                          alt={item.product.name}
+                        />
+                      ) : (
+                        <div className="bag-no-image">YUSEE</div>
+                      )}
+
+                      <div className="bag-line-details">
+                        <b>{item.product.name}</b>
+
+                        {item.variant.size && (
+                          <span>Size: {item.variant.size}</span>
                         )}
-                      </div>
 
-                      <div className="bag-item-info">
-                        <h3>{item.product.name}</h3>
+                        {item.variant.colour && (
+                          <span>Colour: {item.variant.colour}</span>
+                        )}
 
-                        <p>
-                          {item.variant.size || "One size"}
-                          {item.variant.colour
-                            ? ` · ${item.variant.colour}`
-                            : ""}
-                        </p>
+                        {item.variant.delivery && (
+                          <span>Delivery: {item.variant.delivery}</span>
+                        )}
 
-                        <p>{money(item.variant.pricePence)}</p>
-
-                        <div className="quantity-controls">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              updateQuantity(
-                                item.variantId,
-                                item.quantity - 1
-                              )
-                            }
-                            aria-label="Decrease quantity"
-                          >
-                            −
-                          </button>
-
-                          <span>{item.quantity}</span>
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              updateQuantity(
-                                item.variantId,
-                                item.quantity + 1
-                              )
-                            }
-                            aria-label="Increase quantity"
-                          >
-                            +
-                          </button>
-                        </div>
+                        <span>
+                          {money(item.variant.pricePence)} × {item.quantity}
+                        </span>
 
                         <button
-                          type="button"
-                          className="remove-item"
                           onClick={() =>
-                            updateQuantity(item.variantId, 0)
+                            setBag((old) =>
+                              old.filter(
+                                (line) =>
+                                  line.variantId !== item.variantId
+                              )
+                            )
                           }
                         >
                           REMOVE
@@ -820,25 +802,32 @@ export default function MensPage() {
                   ))}
                 </div>
 
-                <div className="bag-footer">
+                <div className="bag-summary">
                   <div className="subtotal">
                     <span>SUBTOTAL</span>
-                    <strong>{money(bagTotal)}</strong>
+                    <b>{money(total)}</b>
                   </div>
 
-                  <p className="delivery-note">
-                    Shipping and taxes are calculated at checkout.
+                  <p>
+                    Delivery is included in the selected product price. Your
+                    delivery type is shown beside each item.
                   </p>
 
                   <button
-                    type="button"
-                    className="add-button checkout-button"
-                    onClick={checkout}
+                    className="checkout-button"
                     disabled={checkoutLoading}
+                    onClick={() =>
+                      startCheckout(
+                        bagItems.map((item) => ({
+                          variantId: item.variantId,
+                          quantity: item.quantity,
+                        }))
+                      )
+                    }
                   >
                     {checkoutLoading
-                      ? "PLEASE WAIT..."
-                      : "PROCEED TO CHECKOUT"}
+                      ? "CONNECTING TO STRIPE..."
+                      : "CHECKOUT"}
                   </button>
                 </div>
               </>
@@ -847,149 +836,149 @@ export default function MensPage() {
         </div>
       )}
 
-      <footer className="site-footer">
-        <div className="footer-top">
-          <div className="footer-brand">
-            <Image
-              src="/FAAEF0EE-B20E-425B-AC66-5DA42ADAF006.png"
-              alt="Yusee Plugs"
-              width={145}
-              height={55}
-              className="footer-logo"
-            />
-            <p>PLUG IN. STAND OUT.</p>
-          </div>
-
-          <div className="footer-links">
-            <h3>SHOP</h3>
-            <Link href="/mens">Men</Link>
-            <Link href="/womens">Women</Link>
-            <Link href="/electronics">Electronics</Link>
-            <Link href="/accessories">Accessories</Link>
-          </div>
-
-          <div className="footer-links">
-            <h3>HELP</h3>
-            <Link href="/contact">Contact</Link>
-            <Link href="/delivery">Delivery</Link>
-            <Link href="/returns">Returns</Link>
-            <Link href="/account">My account</Link>
-          </div>
-        </div>
-
-        <div className="footer-bottom">
-          <p>© {new Date().getFullYear()} YUSEE PLUGS. ALL RIGHTS RESERVED.</p>
-        </div>
-      </footer>
-
       <style jsx>{`
-        .mens-page {
+        * {
+          box-sizing: border-box;
+        }
+
+        .accessories-page {
           min-height: 100vh;
-          background: #fff;
-          color: #111;
+          background: #000;
+          color: #fff;
           font-family: Arial, Helvetica, sans-serif;
         }
 
+        button {
+          font: inherit;
+        }
+
         .announcement {
-          min-height: 29px;
-          background: #111;
+          height: 29px;
+          background: #000;
           color: #fff;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 6px 5%;
+          padding: 0 4%;
           font-size: 9px;
+          font-weight: 950;
           letter-spacing: 1.5px;
-          font-weight: 600;
+          border-bottom: 1px solid #292929;
         }
 
         .site-header {
-          height: 82px;
+          background: #000;
+          color: white;
+          padding: 0 4%;
+          position: relative;
+          z-index: 5;
+          border-bottom: 1px solid #303030;
+        }
+
+        .header-top {
+          height: 76px;
           display: grid;
           grid-template-columns: 1fr auto 1fr;
           align-items: center;
-          padding: 0 5%;
-          border-bottom: 1px solid #eee;
         }
 
         .logo {
+          grid-column: 2;
           display: flex;
           align-items: center;
           justify-content: center;
         }
 
         .logo-image {
-          width: 170px;
-          height: 65px;
+          width: 155px;
+          height: 58px;
           object-fit: contain;
         }
 
         .header-icons {
+          grid-column: 3;
+          justify-self: end;
           display: flex;
           align-items: center;
-          gap: 20px;
-        }
-
-        .header-icons:last-child {
-          justify-content: flex-end;
+          gap: 12px;
         }
 
         .header-icons a,
-        .icon-button {
-          color: #111;
-          display: flex;
+        .header-icon {
+          position: relative;
+          display: inline-flex;
           align-items: center;
           justify-content: center;
-          background: none;
+          color: white;
+          text-decoration: none;
+          background: transparent;
           border: 0;
-          padding: 4px;
+          padding: 9px;
           cursor: pointer;
-          position: relative;
+        }
+
+        .header-icons a:hover,
+        .header-icon:hover {
+          opacity: 0.7;
         }
 
         .bag-count {
           position: absolute;
-          top: -5px;
-          right: -7px;
-          background: #111;
-          color: #fff;
-          border-radius: 50%;
-          min-width: 16px;
-          height: 16px;
+          top: 0;
+          right: 0;
+          min-width: 17px;
+          height: 17px;
+          padding: 0 4px;
+          border-radius: 20px;
+          background: #fff;
+          color: #000;
           font-size: 10px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
+          font-weight: 900;
+          display: grid;
+          place-items: center;
         }
 
         .category-nav {
+          height: 49px;
           display: flex;
-          justify-content: center;
           align-items: center;
-          gap: 42px;
-          height: 48px;
-          border-bottom: 1px solid #eee;
+          justify-content: center;
+          gap: clamp(18px, 4vw, 55px);
+          background: #000;
+          border-top: 1px solid #292929;
+          overflow-x: auto;
+          scrollbar-width: none;
+        }
+
+        .category-nav::-webkit-scrollbar {
+          display: none;
         }
 
         .category-nav a {
-          color: #111;
+          color: #fff;
           text-decoration: none;
-          font-size: 10px;
+          font-size: 11px;
+          font-weight: 950;
           letter-spacing: 1.3px;
-          font-weight: 600;
+          white-space: nowrap;
+          flex-shrink: 0;
         }
 
+        .category-nav a:hover,
         .category-nav a.active {
           opacity: 0.65;
         }
 
-        .banner {
+        .intro {
           width: 100%;
-          line-height: 0;
+          padding: 0;
+          margin: 0;
           overflow: hidden;
+          background: #000;
         }
 
-        .banner-image {
+        .intro img {
+          display: block;
           width: 100%;
           height: auto;
           object-fit: contain;
@@ -997,144 +986,200 @@ export default function MensPage() {
 
         .catalogue {
           padding: 55px 5% 85px;
-          max-width: 1600px;
-          margin: 0 auto;
-        }
-
-        .catalogue-heading {
-          text-align: center;
-          margin-bottom: 35px;
+          background: #000;
         }
 
         .eyebrow {
-          font-size: 9px;
-          letter-spacing: 2px;
-          color: #777;
           margin: 0 0 12px;
+          font-size: 11px;
+          font-weight: 900;
+          letter-spacing: 3px;
+          color: #999;
         }
 
-        .catalogue-heading h1 {
-          font-size: 29px;
-          letter-spacing: 2px;
-          margin: 0;
-          font-weight: 600;
+        .catalogue-heading h2 {
+          font-size: clamp(25px, 4vw, 38px);
+          font-weight: 900;
+          letter-spacing: -1.5px;
+          margin: 0 0 8px;
         }
 
-        .catalogue-description {
+        .product-count {
           font-size: 12px;
-          color: #777;
-          margin-top: 12px;
+          color: #999;
+          font-weight: 800;
         }
 
         .filters {
           display: grid;
           grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
           gap: 10px;
-          margin-bottom: 30px;
+          margin: 28px 0 35px;
         }
 
         .filters input,
-        .filters select {
-          width: 100%;
+        .filters select,
+        .modal-info select {
           min-width: 0;
-          height: 42px;
-          border: 1px solid #ddd;
+          padding: 15px;
+          border: 1px solid #444;
+          background: #111;
+          color: #fff;
           border-radius: 0;
-          background: #fff;
-          padding: 0 12px;
-          color: #222;
-          font-size: 11px;
+          font-size: 14px;
         }
 
         .product-grid {
           display: grid;
           grid-template-columns: repeat(4, minmax(0, 1fr));
-          gap: 30px 17px;
+          gap: 20px;
         }
 
         .product-card {
           border: 0;
           padding: 0;
-          background: #fff;
+          background: #111;
+          color: #fff;
           text-align: left;
-          color: #111;
           cursor: pointer;
           min-width: 0;
         }
 
-        .product-image-wrap {
-          position: relative;
-          width: 100%;
-          aspect-ratio: 3 / 4;
-          background: #f5f5f5;
-          overflow: hidden;
-        }
-
         .product-image {
-          object-fit: cover;
-        }
-
-        .image-placeholder {
-          width: 100%;
-          height: 100%;
+          height: 280px;
+          background: #191919;
+          position: relative;
           display: flex;
           align-items: center;
           justify-content: center;
-          background: #f3f3f3;
-          color: #999;
+          overflow: hidden;
+          color: #888;
           font-size: 13px;
-          letter-spacing: 3px;
+          font-weight: 900;
         }
 
-        .sold-out-label {
+        .product-image img,
+        .modal-image img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .product-image img {
+          transition: transform 0.4s;
+        }
+
+        .product-card:hover .product-image img {
+          transform: scale(1.04);
+        }
+
+        .view-label {
           position: absolute;
           bottom: 10px;
           left: 10px;
           background: #fff;
-          padding: 7px 10px;
+          color: #111;
+          padding: 8px 10px;
           font-size: 9px;
+          font-weight: 900;
           letter-spacing: 1px;
         }
 
-        .product-details {
-          padding-top: 12px;
+        .product-info {
+          padding: 15px;
         }
 
-        .product-details h2 {
-          font-size: 12px;
-          font-weight: 500;
+        .product-info h3 {
           margin: 0 0 7px;
+          font-size: 14px;
+          font-weight: 800;
         }
 
-        .product-details p {
+        .product-info p {
+          margin: 0 0 12px;
           font-size: 11px;
-          color: #555;
-          margin: 0;
+          color: #999;
         }
 
-        .status-message {
+        .product-info strong {
+          font-size: 14px;
+        }
+
+        .status,
+        .empty {
+          padding: 65px 15px;
           text-align: center;
-          padding: 50px 10px;
-          font-size: 12px;
+          color: #aaa;
+        }
+
+        .empty h3 {
+          font-size: 24px;
+          font-weight: 900;
+          color: #fff;
+        }
+
+        .footer {
+          background: #000;
+          color: white;
+          padding: 45px 5%;
+          text-align: center;
+          border-top: 1px solid #333;
+        }
+
+        .footer-brand {
+          color: white;
+          font-size: 25px;
+          font-weight: 900;
+          text-decoration: none;
+        }
+
+        .footer p {
+          color: #aaa;
+          font-size: 11px;
+          letter-spacing: 3px;
+        }
+
+        .footer div {
+          display: flex;
+          justify-content: center;
+          flex-wrap: wrap;
+          gap: 22px;
+          margin: 25px 0;
+        }
+
+        .footer div a {
+          color: white;
+          text-decoration: none;
+          font-size: 11px;
+          font-weight: 800;
           letter-spacing: 1px;
         }
 
-        .modal-backdrop,
-        .drawer-backdrop {
+        .footer small {
+          color: #999;
+          font-size: 10px;
+        }
+
+        /* PRODUCT MODAL */
+
+        .modal-backdrop {
           position: fixed;
           inset: 0;
           z-index: 50;
-          background: rgba(0, 0, 0, 0.55);
+          background: rgba(0, 0, 0, 0.78);
           display: flex;
-          align-items: center;
           justify-content: center;
-          padding: 20px;
+          align-items: center;
+          padding: 18px;
+          overflow-y: auto;
         }
 
         .product-modal {
-          background: #fff;
-          width: min(850px, 100%);
-          max-height: 90vh;
+          background: #f5f5f2;
+          color: #111;
+          width: 100%;
+          max-width: 850px;
+          max-height: 92vh;
           overflow-y: auto;
           display: grid;
           grid-template-columns: 1fr 1fr;
@@ -1143,97 +1188,92 @@ export default function MensPage() {
 
         .close-button {
           position: absolute;
-          top: 13px;
-          right: 13px;
-          z-index: 2;
+          top: 10px;
+          right: 12px;
+          width: 40px;
+          height: 40px;
           border: 0;
+          border-radius: 50%;
           background: #fff;
-          width: 35px;
-          height: 35px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
+          color: #111;
           cursor: pointer;
+          z-index: 2;
         }
 
         .modal-image {
-          position: relative;
-          min-height: 450px;
-          background: #f5f5f5;
+          min-height: 380px;
+          background: #e6e6e3;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #888;
+          font-weight: 900;
         }
 
-        .modal-details {
-          padding: 55px 35px 35px;
+        .modal-info {
+          padding: 45px 30px 30px;
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 14px;
         }
 
-        .modal-details h2 {
-          font-size: 23px;
-          font-weight: 500;
-          margin: 0 0 15px;
+        .modal-info .eyebrow {
+          color: #777;
+        }
+
+        .modal-info h2 {
+          font-size: 26px;
+          font-weight: 900;
+          margin: 0;
         }
 
         .modal-description {
-          font-size: 12px;
-          line-height: 1.7;
           color: #666;
-          margin-bottom: 25px;
+          font-size: 13px;
+          line-height: 1.6;
+          white-space: pre-wrap;
         }
 
-        .modal-details h3 {
-          font-size: 10px;
-          letter-spacing: 1.5px;
-          margin: 25px 0 12px;
+        .modal-info label {
+          font-size: 12px;
+          font-weight: 800;
+          letter-spacing: 1px;
         }
 
-        .variant-list {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .variant-option {
+        .modal-info select {
           width: 100%;
-          min-height: 42px;
-          padding: 10px;
-          border: 1px solid #ddd;
           background: #fff;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 8px;
-          text-align: left;
-          font-size: 10px;
-          cursor: pointer;
+          color: #111;
+          border-color: #ccc;
         }
 
-        .variant-option.chosen {
-          border-color: #111;
-          background: #f8f8f8;
+        .modal-price {
+          font-size: 20px;
         }
 
-        .variant-option:disabled {
-          opacity: 0.4;
-          cursor: not-allowed;
-        }
-
-        .form-message {
+        .stock-text {
           font-size: 11px;
-          color: #b00020;
-          line-height: 1.5;
-          margin-top: 12px;
+          letter-spacing: 0.7px;
+        }
+
+        .in-stock {
+          color: #333;
+        }
+
+        .out-stock {
+          color: #777;
         }
 
         .add-button {
           width: 100%;
-          height: 47px;
+          padding: 16px;
+          border: 1px solid #111;
           background: #111;
           color: #fff;
-          border: 1px solid #111;
-          font-size: 10px;
-          letter-spacing: 1.5px;
-          font-weight: 600;
+          font-weight: 900;
+          letter-spacing: 1px;
           cursor: pointer;
-          margin-top: 20px;
         }
 
         .add-button:disabled {
@@ -1241,186 +1281,179 @@ export default function MensPage() {
           cursor: not-allowed;
         }
 
+        .message {
+          font-size: 12px;
+          line-height: 1.5;
+          font-weight: 700;
+        }
+
+        /* SHOPPING BAG DRAWER */
+
         .drawer-backdrop {
-          justify-content: flex-end;
+          position: fixed;
+          inset: 0;
+          z-index: 60;
+          display: flex;
+          justify-content: flex-start;
+          align-items: stretch;
           padding: 0;
+          background: rgba(0, 0, 0, 0.78);
         }
 
         .bag-drawer {
-          width: min(430px, 100%);
+          width: min(420px, 90vw);
           height: 100%;
-          background: #fff;
+          margin-left: auto;
+          overflow-y: auto;
+          padding: 24px;
+          background: #050505;
+          color: #fff;
+          box-shadow: -10px 0 35px rgba(0, 0, 0, 0.35);
           display: flex;
           flex-direction: column;
-          padding: 25px;
         }
 
-        .drawer-heading {
+        .drawer-header {
           display: flex;
-          justify-content: space-between;
           align-items: center;
-          border-bottom: 1px solid #eee;
-          padding-bottom: 18px;
+          justify-content: space-between;
+          gap: 15px;
+          padding-bottom: 22px;
+          border-bottom: 1px solid #333;
         }
 
-        .drawer-heading h2 {
-          font-size: 13px;
-          letter-spacing: 1.5px;
+        .drawer-header h2 {
+          font-size: 17px;
+          letter-spacing: 1px;
           margin: 0;
         }
 
-        .empty-bag {
+        .drawer-close {
+          display: grid;
+          place-items: center;
+          padding: 8px;
+          border: 0;
+          background: transparent;
+          color: #fff;
+          cursor: pointer;
+        }
+
+        .bag-lines {
+          padding: 20px 0;
           flex: 1;
+        }
+
+        .bag-line {
+          display: flex;
+          gap: 14px;
+          padding: 15px 0;
+          border-bottom: 1px solid #292929;
+        }
+
+        .bag-line img,
+        .bag-no-image {
+          width: 90px;
+          height: 110px;
+          object-fit: cover;
+          background: #252525;
+          flex-shrink: 0;
+        }
+
+        .bag-no-image {
+          display: grid;
+          place-items: center;
+          font-size: 10px;
+          font-weight: 900;
+        }
+
+        .bag-line-details {
           display: flex;
           flex-direction: column;
-          justify-content: center;
-          align-items: center;
-          text-align: center;
-          font-size: 12px;
-          color: #666;
-        }
-
-        .bag-products {
-          flex: 1;
-          overflow-y: auto;
-        }
-
-        .bag-item {
-          display: grid;
-          grid-template-columns: 90px 1fr;
-          gap: 15px;
-          padding: 20px 0;
-          border-bottom: 1px solid #eee;
-        }
-
-        .bag-item-image {
-          position: relative;
-          width: 90px;
-          height: 115px;
-          background: #f5f5f5;
-        }
-
-        .bag-item-info h3 {
-          font-size: 12px;
-          font-weight: 500;
-          margin: 0 0 7px;
-        }
-
-        .bag-item-info p {
-          font-size: 10px;
-          color: #666;
-          margin: 5px 0;
-        }
-
-        .quantity-controls {
-          display: flex;
-          align-items: center;
-          gap: 15px;
-          margin-top: 10px;
+          align-items: flex-start;
+          gap: 7px;
           font-size: 11px;
+          min-width: 0;
         }
 
-        .quantity-controls button {
-          width: 23px;
-          height: 23px;
-          background: #fff;
-          border: 1px solid #ddd;
-          cursor: pointer;
+        .bag-line-details b {
+          line-height: 1.4;
         }
 
-        .remove-item {
-          background: none;
-          border: 0;
+        .bag-line-details span {
+          color: #aaa;
+        }
+
+        .bag-line-details button {
           padding: 0;
-          margin-top: 10px;
-          font-size: 9px;
-          letter-spacing: 1px;
+          margin-top: 4px;
+          border: 0;
+          background: transparent;
+          color: #fff;
           text-decoration: underline;
+          font-size: 9px;
           cursor: pointer;
         }
 
-        .bag-footer {
-          border-top: 1px solid #eee;
-          padding-top: 20px;
+        .bag-summary {
+          position: sticky;
+          bottom: 0;
+          padding: 18px 0;
+          background: #050505;
+          border-top: 1px solid #333;
         }
 
         .subtotal {
           display: flex;
           justify-content: space-between;
-          font-size: 12px;
-          letter-spacing: 1px;
+          font-size: 13px;
         }
 
-        .delivery-note {
-          font-size: 10px;
-          color: #777;
-          margin-top: 10px;
+        .bag-summary p,
+        .empty-bag p {
+          color: #999;
+          font-size: 11px;
+          line-height: 1.6;
         }
 
         .checkout-button {
-          margin-top: 15px;
+          width: 100%;
+          padding: 16px;
+          border: 0;
+          background: #fff;
+          color: #000;
+          font-size: 11px;
+          font-weight: 950;
+          letter-spacing: 1px;
+          cursor: pointer;
         }
 
-        .site-footer {
-          background: #111;
-          color: #fff;
-          padding: 50px 7% 20px;
+        .checkout-button:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
         }
 
-        .footer-top {
-          display: grid;
-          grid-template-columns: 2fr 1fr 1fr;
-          gap: 40px;
-          padding-bottom: 45px;
-        }
-
-        .footer-logo {
-          width: 145px;
-          height: 55px;
-          object-fit: contain;
-          filter: brightness(0) invert(1);
-        }
-
-        .footer-brand p {
-          font-size: 9px;
-          letter-spacing: 2px;
-          color: #aaa;
-        }
-
-        .footer-links {
+        .empty-bag {
+          min-height: 65vh;
           display: flex;
           flex-direction: column;
+          align-items: center;
+          justify-content: center;
           gap: 12px;
-        }
-
-        .footer-links h3 {
-          font-size: 10px;
-          letter-spacing: 1.5px;
-          margin: 0 0 7px;
-        }
-
-        .footer-links a {
-          color: #aaa;
-          text-decoration: none;
-          font-size: 11px;
-        }
-
-        .footer-links a:hover {
-          color: #fff;
-        }
-
-        .footer-bottom {
-          border-top: 1px solid #333;
-          padding-top: 20px;
-          color: #888;
-          font-size: 9px;
-          letter-spacing: 1px;
           text-align: center;
+        }
+
+        .empty-bag h3 {
+          font-size: 14px;
+          letter-spacing: 1px;
         }
 
         @media (max-width: 850px) {
           .product-grid {
             grid-template-columns: repeat(3, minmax(0, 1fr));
+          }
+
+          .product-image {
+            height: 220px;
           }
 
           .filters {
@@ -1430,102 +1463,95 @@ export default function MensPage() {
           .filters input {
             grid-column: 1 / -1;
           }
-
-          .product-modal {
-            max-width: 650px;
-          }
-
-          .modal-image {
-            min-height: 350px;
-          }
         }
 
-        @media (max-width: 600px) {
+        @media (max-width: 760px) {
           .announcement {
+            padding: 0 13px;
             font-size: 8px;
-            padding: 7px 4%;
+            letter-spacing: 1px;
           }
 
-          .site-header {
-            height: 70px;
-            padding: 0 4%;
+          .header-top {
+            height: 65px;
           }
 
           .logo-image {
-            width: 135px;
-            height: 55px;
+            width: 125px;
+            height: 49px;
           }
 
           .header-icons {
-            gap: 10px;
+            gap: 2px;
           }
 
-          .header-icons svg {
-            width: 19px;
-            height: 19px;
+          .header-icons a,
+          .header-icon {
+            padding: 7px;
           }
 
           .category-nav {
             height: 43px;
-            gap: 19px;
+            justify-content: flex-start;
+            gap: 23px;
+            padding: 0 2px;
           }
 
           .category-nav a {
-            font-size: 8px;
-            letter-spacing: 0.7px;
+            font-size: 9px;
+            white-space: nowrap;
           }
 
           .catalogue {
-            padding: 38px 4% 60px;
-          }
-
-          .catalogue-heading h1 {
-            font-size: 24px;
+            padding: 40px 15px 60px;
           }
 
           .product-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 25px 10px;
+            gap: 22px 12px;
           }
 
-          .product-details h2 {
-            font-size: 11px;
+          .product-image {
+            height: auto;
+            aspect-ratio: 1 / 1.08;
+          }
+
+          .product-info {
+            padding: 11px;
+          }
+
+          .product-info h3 {
+            font-size: 12px;
+          }
+
+          .product-info p {
+            font-size: 10px;
+          }
+
+          .product-info strong {
+            font-size: 12px;
           }
 
           .product-modal {
-            display: block;
-            width: 100%;
-            max-height: 92vh;
+            grid-template-columns: 1fr;
+            max-width: 430px;
           }
 
           .modal-image {
-            min-height: 0;
-            height: 300px;
+            min-height: 230px;
+            max-height: 260px;
           }
 
-          .modal-details {
+          .modal-info {
             padding: 25px 20px;
           }
 
-          .modal-details h2 {
-            font-size: 20px;
+          .footer {
+            padding: 35px 18px;
           }
 
-          .footer-top {
-            grid-template-columns: 1fr 1fr;
-            gap: 30px 20px;
-          }
-
-          .footer-brand {
-            grid-column: 1 / -1;
-          }
-
-          .site-footer {
-            padding: 40px 6% 20px;
-          }
-
-          .bag-drawer {
-            padding: 20px;
+          .footer div {
+            gap: 15px;
           }
         }
       `}</style>
