@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Yusee Plugs | Premium Tech & Accessories",
+  title: "Yusee Plugs | Designer Clothing, Tech & Accessories",
   description:
-    "Shop Yusee Plugs for quality tech and accessories. Discover our collection, shop online and enjoy delivery included in the product price.",
+    "Shop designer clothing, electronics and accessories at Yusee Plugs. Discover premium brands, sought-after styles and tech all in one place.",
   metadataBase: new URL("https://yusee-plugs.co.uk"),
   openGraph: {
     title: "Yusee Plugs | Premium Tech & Accessories",
